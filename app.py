@@ -5,7 +5,7 @@ from googleapiclient.http import MediaIoBaseUpload
 import io
 from datetime import datetime
 
-# --- 1. الإعدادات والربط السحابي ---
+# --- 1. الإعدادات ---
 if "gcp_service_account" in st.secrets:
     info = st.secrets["gcp_service_account"]
     credentials = service_account.Credentials.from_service_account_info(info)
@@ -13,10 +13,10 @@ if "gcp_service_account" in st.secrets:
 else:
     st.error("⚠️ إعدادات Secrets غير موجودة!")
 
-# معرف المجلد الجديد الذي أنشأته (Seville_Archive_V2)
+# معرف المجلد الجديد (V2)
 FOLDER_ID = "1i0ziiky_QsBPXjaM6RexlEOXDTY9Zg1D" 
 
-# --- 2. التحقق من الدخول ---
+# --- 2. نظام الدخول ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -43,41 +43,34 @@ else:
             if st.form_submit_button("رفع إلى Google Drive ✅"):
                 if uploaded_file and doc_name:
                     try:
+                        # تجهيز بيانات الملف
                         file_metadata = {
                             'name': f"{doc_type}_{doc_name}_{datetime.now().strftime('%Y-%m-%d')}",
                             'parents': [FOLDER_ID]
                         }
                         
-                        media = MediaIoBaseUpload(io.BytesIO(uploaded_file.read()), 
-                                                 mimetype=uploaded_file.type)
+                        # تحويل الملف لتدفق بيانات مع تحديد نوع الميم
+                        media = MediaIoBaseUpload(
+                            io.BytesIO(uploaded_file.read()), 
+                            mimetype=uploaded_file.type,
+                            resumable=True # هذا الخيار يقلل من مشاكل القيود
+                        )
 
-                        # الرفع مع خاصية supportsAllDrives
+                        # تنفيذ الرفع مع دعم المساحات المشتركة
                         file = drive_service.files().create(
                             body=file_metadata,
                             media_body=media,
                             fields='id',
                             supportsAllDrives=True 
                         ).execute()
-
-                        # --- الخطوة السحرية: نقل الملكية لك فوراً ---
-                        # هذا السطر يجعل الملف يتبع مساحتك أنت وليس مساحة الروبوت
-                        drive_service.permissions().create(
-                            fileId=file.get('id'),
-                            body={'type': 'user', 'role': 'owner', 'emailAddress': 'ahmad.j.altikriti@gmail.com'},
-                            transferOwnership=True,
-                            supportsAllDrives=True
-                        ).execute()
                         
-                        st.success("✅ تم الرفع بنجاح!")
+                        st.success("✅ تم الرفع بنجاح لمجلد إشبيلية!")
                         st.balloons()
                     except Exception as e:
-                        # إذا فشل نقل الملكية (وهو متوقع في الحسابات الشخصية)، سنكتفي بالرفع العادي 
-                        # مع التأكد من أن المجلد نفسه "مشترك" بشكل صحيح.
                         if "storageQuotaExceeded" in str(e):
-                             st.error("⚠️ جوجل لا تزال ترفض المساحة. يرجى التأكد من أنك جعلت الروبوت Editor في المجلد الجديد.")
+                            st.error("⚠️ جوجل لا تزال ترفض المساحة. يرجى مراجعة إعداد 'أيقونة الترس' في المجلد.")
                         else:
-                             st.success("✅ تم الرفع! (ملاحظة: تأكد من ظهور الملف في المجلد)")
-                             st.balloons()
+                            st.error(f"❌ فشل: {e}")
 
     elif menu == "🔍 استعراض الأرشيف":
         st.header("📂 المستندات الحالية")

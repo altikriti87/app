@@ -1,8 +1,2 @@
 streamlit
-easyocr
-sqlalchemy
-Pillow
 pandas
-xlsxwriter
-opencv-python-headless
-numpy

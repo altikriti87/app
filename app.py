@@ -13,7 +13,7 @@ if "gcp_service_account" in st.secrets:
 else:
     st.error("⚠️ إعدادات Secrets غير موجودة!")
 
-# معرف المجلد الجديد (V2)
+# المعرف الجديد للمجلد (V2) الذي أنشأته
 FOLDER_ID = "1i0ziiky_QsBPXjaM6RexlEOXDTY9Zg1D" 
 
 # --- 2. نظام الدخول ---
@@ -21,14 +21,14 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.markdown("<h2 style='text-align: center;'>🔐 دخول نظام أرشفة إشبيلية</h2>", unsafe_allow_html=True)
-    pwd = st.text_input("كلمة المرور:", type="password")
+    st.markdown("<h2 style='text-align: center;'>🔐 نظام أرشفة مكتب إشبيلية العلمي</h2>", unsafe_allow_html=True)
+    pwd = st.text_input("أدخل كلمة المرور:", type="password")
     if st.button("دخول"):
         if pwd == st.secrets.get("password", "admin123"):
             st.session_state.authenticated = True
             st.rerun()
         else:
-            st.error("❌ خطأ!")
+            st.error("❌ كلمة المرور غير صحيحة")
 else:
     st.sidebar.title("⭐ مكتب إشبيلية")
     menu = st.sidebar.radio("القائمة:", ["📥 إضافة وثيقة", "🔍 استعراض الأرشيف"])
@@ -43,17 +43,15 @@ else:
             if st.form_submit_button("رفع إلى Google Drive ✅"):
                 if uploaded_file and doc_name:
                     try:
-                        # تجهيز بيانات الملف
                         file_metadata = {
                             'name': f"{doc_type}_{doc_name}_{datetime.now().strftime('%Y-%m-%d')}",
                             'parents': [FOLDER_ID]
                         }
                         
-                        # تحويل الملف لتدفق بيانات مع تحديد نوع الميم
                         media = MediaIoBaseUpload(
                             io.BytesIO(uploaded_file.read()), 
                             mimetype=uploaded_file.type,
-                            resumable=True # هذا الخيار يقلل من مشاكل القيود
+                            resumable=True
                         )
 
                         # تنفيذ الرفع مع دعم المساحات المشتركة
@@ -64,16 +62,17 @@ else:
                             supportsAllDrives=True 
                         ).execute()
                         
-                        st.success("✅ تم الرفع بنجاح لمجلد إشبيلية!")
+                        st.success("✅ تم الرفع بنجاح!")
                         st.balloons()
                     except Exception as e:
                         if "storageQuotaExceeded" in str(e):
-                            st.error("⚠️ جوجل لا تزال ترفض المساحة. يرجى مراجعة إعداد 'أيقونة الترس' في المجلد.")
+                            st.error("⚠️ مشكلة في الحصة. سأحاول الآن حلها يدوياً...")
+                            st.info("💡 الحل البديل: اذهب إلى المجلد في المتصفح، واضغط على 'مشاركة'، ثم تأكد من أن حساب الخدمة هو 'محرر' (Editor) وليس 'مشاهد'.")
                         else:
                             st.error(f"❌ فشل: {e}")
 
     elif menu == "🔍 استعراض الأرشيف":
-        st.header("📂 المستندات الحالية")
+        st.header("📂 الملفات الحالية")
         if st.button("تحديث القائمة 🔄"):
             try:
                 results = drive_service.files().list(

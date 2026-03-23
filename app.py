@@ -45,125 +45,145 @@ class AuditLog(Base):
     action = Column(String)
     timestamp = Column(DateTime, default=datetime.datetime.now)
 
+# إنشاء قاعدة البيانات (محلياً بصيغة SQLite)
 engine = create_engine('sqlite:///smart_dms_final.db')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 db = Session()
 
-# إنشاء مستخدم افتراضي
+# إنشاء مستخدم "مدير" افتراضي إذا لم يكن موجوداً
 if not db.query(User).filter_by(username='admin').first():
-    db.add(User(username='admin', password=hashlib.sha256('admin'.encode()).hexdigest()))
+    admin_pass = hashlib.sha256('admin'.encode()).hexdigest()
+    db.add(User(username='admin', password=admin_pass))
     db.commit()
 
-# --- 2. محرك الـ OCR الديناميكي ---
+# --- 2. محرك الـ OCR (تحميل الموديل مرة واحدة لتوفير الذاكرة) ---
 @st.cache_resource
 def get_ocr_reader(langs):
-    # langs: ['ar', 'en'] أو ['ar'] أو ['en']
-    return easyocr.Reader(langs)
+    return easyocr.Reader(langs, gpu=False) # تعطيل GPU لأن سيرفرات Streamlit مجانية
 
 # --- 3. نظام الحماية والواجهة ---
-st.set_page_config(page_title="نظام الأرشفة الذكي 2026", layout="wide")
+st.set_page_config(page_title="Seville Smart Archive 2026", layout="wide", initial_sidebar_state="expanded")
 
 def login_system():
     if "auth" not in st.session_state: st.session_state.auth = False
     if not st.session_state.auth:
-        st.title("🔐 الدخول للنظام")
-        u = st.text_input("اسم المستخدم")
-        p = st.text_input("كلمة المرور", type="password")
-        if st.button("تسجيل الدخول"):
-            if db.query(User).filter_by(username=u, password=hashlib.sha256(p.encode()).hexdigest()).first():
-                st.session_state.auth = True
-                st.session_state.user = u
-                st.rerun()
-            else: st.error("بيانات خاطئة")
+        st.markdown("<h2 style='text-align: center;'>🔐 نظام الأرشفة الذكي - تسجيل الدخول</h2>", unsafe_allow_html=True)
+        with st.container():
+            col_a, col_b, col_c = st.columns([1, 2, 1])
+            with col_b:
+                u = st.text_input("اسم المستخدم")
+                p = st.text_input("كلمة المرور", type="password")
+                if st.button("دخول", use_container_width=True):
+                    hashed_p = hashlib.sha256(p.encode()).hexdigest()
+                    user = db.query(User).filter_by(username=u, password=hashed_p).first()
+                    if user:
+                        st.session_state.auth = True
+                        st.session_state.user = u
+                        st.rerun()
+                    else:
+                        st.error("اسم المستخدم أو كلمة المرور غير صحيحة")
         return False
     return True
 
 if login_system():
-    st.sidebar.title(f"👤 {st.session_state.user}")
-    menu = st.sidebar.radio("القائمة", ["🏠 الإحصائيات", "📁 المجلدات", "📤 أرشفة وثيقة", "🔍 البحث والتعديل", "📜 السجلات"])
+    # الهيدر الجانبي
+    st.sidebar.success(f"مرحباً بك: {st.session_state.user}")
+    menu = st.sidebar.radio("المهام الرئيسية", ["🏠 لوحة التحكم", "📁 إدارة المجلدات", "📤 أرشفة وثيقة جديدة", "🔍 البحث في الأرشيف", "📜 سجل العمليات"])
 
-    # --- أرشفة وثيقة (النسخة المحسنة) ---
-    if menu == "📤 أرشفة وثيقة":
-        st.header("أرشفة وثيقة جديدة")
+    # --- القسم 1: لوحة التحكم ---
+    if menu == "🏠 لوحة التحكم":
+        st.title("📊 حالة الأرشيف العام")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("إجمالي الوثائق", db.query(Document).count())
+        c2.metric("المجلدات النشطة", db.query(Folder).count())
+        c3.metric("عمليات اليوم", db.query(AuditLog).filter(AuditLog.timestamp >= datetime.date.today()).count())
+        
+        if st.sidebar.button("تسجيل الخروج"):
+            st.session_state.auth = False
+            st.rerun()
+
+    # --- القسم 2: إدارة المجلدات ---
+    elif menu == "📁 إدارة المجلدات":
+        st.header("إدارة تصنيفات المجلدات")
+        new_folder = st.text_input("اسم المجلد الجديد (مثلاً: أدوية الضغط، عقود 2026)")
+        if st.button("إنشاء المجلد"):
+            if new_folder:
+                if not db.query(Folder).filter_by(name=new_folder).first():
+                    db.add(Folder(name=new_folder))
+                    db.commit()
+                    st.success(f"تم إنشاء مجلد {new_folder}")
+                else: st.warning("المجلد موجود مسبقاً")
+
+    # --- القسم 3: أرشفة وثيقة ---
+    elif menu == "📤 أرشفة وثيقة جديدة":
+        st.header("رفع ومعالجة وثيقة ذكية")
         folders = db.query(Folder).all()
         f_map = {f.name: f.id for f in folders}
         
         if not f_map:
-            st.warning("يرجى إنشاء مجلد أولاً من قسم المجلدات.")
+            st.info("يرجى إنشاء مجلد واحد على الأقل قبل البدء بالأرشفة.")
         else:
             col1, col2 = st.columns(2)
             with col1:
-                sel_f = st.selectbox("المجلد المستهدف", list(f_map.keys()))
-                lang_choice = st.multiselect("لغة الوثيقة (اختر واحدة لزيادة الدقة)", ['ar', 'en'], default=['ar', 'en'])
+                sel_f = st.selectbox("اختر المجلد", list(f_map.keys()))
+                lang_choice = st.multiselect("لغة النص في الصورة", ['ar', 'en'], default=['ar'])
             with col2:
-                file = st.file_uploader("ارفع الصورة", type=['png', 'jpg', 'jpeg'])
+                file = st.file_uploader("اختر صورة الوثيقة", type=['png', 'jpg', 'jpeg'])
 
-            if file and st.button("تحليل وأرشفة"):
-                # حفظ الملف
-                os.makedirs(f"storage/{sel_f}", exist_ok=True)
-                f_path = os.path.join(f"storage/{sel_f}", file.name)
-                with open(f_path, "wb") as f: f.write(file.getbuffer())
+            if file and st.button("بدء التحليل والأرشفة"):
+                with st.spinner("جاري قراءة النص وتحسين الصورة..."):
+                    # 1. حفظ الملف في الذاكرة المؤقتة
+                    os.makedirs(f"storage/{sel_f}", exist_ok=True)
+                    f_path = os.path.join(f"storage/{sel_f}", file.name)
+                    with open(f_path, "wb") as f: f.write(file.getbuffer())
 
-                with st.spinner("جاري المعالجة الصورية والـ OCR..."):
-                    # 1. تحسين الصورة (Image Pre-processing)
-                    img = Image.open(file)
+                    # 2. معالجة الصورة بـ OpenCV
+                    img = Image.open(file).convert('RGB')
                     opencv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
                     gray = cv2.cvtColor(opencv_img, cv2.COLOR_BGR2GRAY)
-                    # تنظيف الصورة من "النمش" أو النقط السوداء
-                    denoised = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
-                    processed = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+                    # تحسين التباين لزيادة دقة الـ OCR
+                    processed = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
 
-                    # 2. القراءة اللغوية
+                    # 3. تشغيل OCR
                     reader = get_ocr_reader(lang_choice)
                     results = reader.readtext(processed, detail=0, paragraph=True)
                     final_text = " ".join(results)
 
-                # 3. الحفظ في القاعدة
-                new_doc = Document(title=file.name, file_path=f_path, content_text=final_text, 
-                                   language=str(lang_choice), folder_id=f_map[sel_f])
-                db.add(new_doc)
-                db.add(AuditLog(user=st.session_state.user, action=f"أرشفة: {file.name}"))
-                db.commit()
-                st.success("تمت الأرشفة بنجاح!")
-                st.text_area("النص المستخرج:", final_text, height=200)
+                    # 4. الحفظ في قاعدة البيانات
+                    new_doc = Document(title=file.name, file_path=f_path, content_text=final_text, 
+                                       language=str(lang_choice), folder_id=f_map[sel_f])
+                    db.add(new_doc)
+                    db.add(AuditLog(user=st.session_state.user, action=f"أرشفة وثيقة: {file.name}"))
+                    db.commit()
+                    
+                    st.success("تم الحفظ بنجاح!")
+                    st.text_area("النص الذي تم استخراجه:", final_text, height=200)
 
-    # --- البحث والتعديل اليدوي ---
-    elif menu == "🔍 البحث والتعديل":
-        st.header("البحث في الأرشيف")
-        q = st.text_input("ابحث عن نص أو اسم ملف...")
-        if q:
-            docs = db.query(Document).filter(Document.content_text.contains(q) | Document.title.contains(q)).all()
-            for d in docs:
-                with st.expander(f"📄 {d.title} (بتاريخ {d.upload_date.date()})"):
+    # --- القسم 4: البحث والتعديل ---
+    elif menu == "🔍 البحث في الأرشيف":
+        st.header("البحث الذكي في محتوى الوثائق")
+        search_query = st.text_input("اكتب اسم الدواء، رقم الوثيقة، أو أي كلمة من المحتوى...")
+        if search_query:
+            results = db.query(Document).filter(Document.content_text.contains(search_query) | Document.title.contains(search_query)).all()
+            st.write(f"تم العثور على ({len(results)}) وثيقة:")
+            for d in results:
+                with st.expander(f"📄 {d.title} - مجلد: {d.folder.name}"):
                     c1, c2 = st.columns([1, 2])
-                    with c1: st.image(d.file_path)
+                    with c1:
+                        if os.path.exists(d.file_path):
+                            st.image(d.file_path, use_container_width=True)
                     with c2:
-                        corrected_text = st.text_area("تصحيح النص يدوياً:", d.content_text, key=f"edit_{d.id}", height=250)
-                        if st.button("حفظ التعديل", key=f"btn_{d.id}"):
-                            d.content_text = corrected_text
+                        st.info(f"تاريخ الرفع: {d.upload_date.strftime('%Y-%m-%d %H:%M')}")
+                        new_content = st.text_area("المحتوى المكتوب (يمكنك تعديله):", d.content_text, key=f"edit_{d.id}", height=200)
+                        if st.button("حفظ التغييرات", key=f"save_{d.id}"):
+                            d.content_text = new_content
                             db.commit()
-                            st.success("تم التحديث")
+                            st.success("تم تحديث البيانات")
 
-    # --- بقية الأقسام ---
-    elif menu == "📁 المجلدات":
-        st.header("إدارة المجلدات")
-        name = st.text_input("اسم المجلد")
-        if st.button("إنشاء"):
-            if name:
-                db.add(Folder(name=name)); db.commit()
-                st.success("تم")
-
-    elif menu == "📜 السجلات":
-        st.header("سجل الرقابة")
-        logs = db.query(AuditLog).order_by(AuditLog.timestamp.desc()).all()
-        st.dataframe(pd.DataFrame([{"المستخدم": l.user, "العملية": l.action, "الوقت": l.timestamp} for l in logs]))
-
-    else:
-        st.header("لوحة التحكم")
-        col1, col2 = st.columns(2)
-        col1.metric("إجمالي الوثائق", db.query(Document).count())
-        col2.metric("عدد المجلدات", db.query(Folder).count())
-        if st.sidebar.button("تسجيل الخروج"):
-            st.session_state.auth = False
-            st.rerun()
+    # --- القسم 5: السجلات ---
+    elif menu == "📜 سجل العمليات":
+        st.header("سجل الرقابة (Audit Log)")
+        logs = db.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(100).all()
+        log_data = [{"المستخدم": l.user, "الإجراء": l.action, "الوقت": l.timestamp.strftime('%Y-%m-%d %H:%M:%S')} for l in logs]
+        st.table(pd.DataFrame(log_data))

@@ -1,8 +1,4 @@
 streamlit
-easyocr
-sqlalchemy
-Pillow
+openpyxl
 pandas
-xlsxwriter
-opencv-python-headless
-numpy
+PyPDF2

@@ -1,54 +1,71 @@
+import os
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+import sqlite3
+from PIL import Image
+import easyocr
+import numpy as np
 
-# إعداد الصفحة
-st.set_page_config(page_title="المكتب العلمي - أرشفة تجريبية", layout="wide")
+# --- 1. إعداد المسارات ---
+# قم بتغيير هذا المسار للمسار الموجود في جهازك لقرص جوجل درايف
+CLOUD_PATH = r"G:\My Drive\Archive_Cloud" 
 
-# عنوان البرنامج
-st.title("🧪 نظام الأرشفة التجريبي (بدون مكتبات معقدة)")
-st.write("هذا الإصدار مخصص لاختبار عمل السيرفر فقط.")
+if not os.path.exists(CLOUD_PATH):
+    # إذا لم يجد قرص G، سيستخدم مجلد محلي مؤقت
+    CLOUD_PATH = "local_archive"
+    os.makedirs(CLOUD_PATH, exist_ok=True)
 
-# إنشاء مخزن بيانات مؤقت في الذاكرة
-if 'data_archive' not in st.session_state:
-    st.session_state.data_archive = []
+# --- 2. قاعدة البيانات (لحفظ النصوص والبحث) ---
+conn = sqlite3.connect('my_archive.db', check_same_thread=False)
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS docs 
+             (id INTEGER PRIMARY KEY, title TEXT, content TEXT, path TEXT)''')
+conn.commit()
 
-# --- قسم إدخال البيانات ---
-st.header("📥 أرشفة دواء جديد")
-with st.form("archive_form"):
-    col1, col2 = st.columns(2)
-    with col1:
-        drug_name = st.text_input("اسم الدواء")
-        batch_no = st.text_input("رقم الوجبة (Batch No)")
-    with col2:
-        folder_name = st.selectbox("المجلد", ["أدوية عامة", "مستندات الوزارة", "عقود"])
-        note = st.text_area("ملاحظات إضافية")
+# --- 3. واجهة البرنامج ---
+st.set_page_config(page_title="أرشفة سحابية مجانية")
+st.title("📂 نظام الأرشفة المتصل بجوجل درايف")
+
+menu = st.sidebar.selectbox("القائمة", ["إضافة وثيقة", "بحث في الأرشيف"])
+
+if menu == "إضافة وثيقة":
+    st.header("رفع وثيقة جديدة للسحابة")
+    uploaded_file = st.file_uploader("اختر صورة الوثيقة", type=['jpg', 'png', 'jpeg'])
     
-    submit = st.form_submit_button("حفظ في الأرشيف")
+    if uploaded_file is not None:
+        if st.button("أرشفة وحفظ في درايف"):
+            # حفظ الملف في مجلد جوجل درايف على الجهاز
+            file_path = os.path.join(CLOUD_PATH, uploaded_file.name)
+            with open(file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            # قراءة النص (OCR)
+            with st.spinner("جاري استخراج النصوص..."):
+                reader = easyocr.Reader(['ar', 'en'])
+                img = Image.open(uploaded_file)
+                result = reader.readtext(np.array(img), detail=0)
+                full_text = " ".join(result)
+            
+            # حفظ البيانات في قاعدة البيانات للبحث السريع
+            c.execute("INSERT INTO docs (title, content, path) VALUES (?, ?, ?)", 
+                      (uploaded_file.name, full_text, file_path))
+            conn.commit()
+            
+            st.success(f"✅ تم الحفظ! الملف الآن في طريقه لجوجل درايف عبر المزامنة.")
+            st.info(f"المسار الحالي: {file_path}")
 
-if submit:
-    if drug_name:
-        entry = {
-            "التاريخ": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "اسم الدواء": drug_name,
-            "الدفعة": batch_no,
-            "المجلد": folder_name,
-            "الملاحظات": note
-        }
-        st.session_state.data_archive.append(entry)
-        st.success(f"تمت إضافة {drug_name} بنجاح!")
-    else:
-        st.error("يرجى كتابة اسم الدواء")
-
-# --- قسم عرض البيانات ---
-st.divider()
-st.header("🔍 الأرشيف الحالي")
-if st.session_state.data_archive:
-    df = pd.DataFrame(st.session_state.data_archive)
-    st.dataframe(df, use_container_width=True)
+elif menu == "بحث في الأرشيف":
+    st.header("🔍 ابحث في وثائقك")
+    search_query = st.text_input("أدخل كلمة للبحث عنها داخل الصور...")
     
-    # خيار تحميل البيانات كملف Excel بسيط (CSV)
-    csv = df.to_csv(index=False).encode('utf-8-sig')
-    st.download_button("تحميل الأرشيف كملف Excel", data=csv, file_name="archive_test.csv", mime="text/csv")
-else:
-    st.info("الأرشيف فارغ حالياً. قم بإضافة بيانات من الأعلى.")
+    if search_query:
+        c.execute("SELECT * FROM docs WHERE content LIKE ?", ('%' + search_query + '%',))
+        results = c.fetchall()
+        
+        for res in results:
+            with st.expander(f"📄 {res[1]}"):
+                st.write(f"المحتوى المستخرج: {res[2]}")
+                if os.path.exists(res[3]):
+                    st.image(res[3], caption="معاينة من المجلد المزامَن")
+                else:
+                    st.warning("الملف موجود على السحابة ولكن غير محمل محلياً حالياً.")

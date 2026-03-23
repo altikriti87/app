@@ -11,10 +11,10 @@ if "gcp_service_account" in st.secrets:
     credentials = service_account.Credentials.from_service_account_info(info)
     drive_service = build('drive', 'v3', credentials=credentials)
 else:
-    st.error("⚠️ إعدادات Secrets غير مكتملة.")
+    st.error("⚠️ إعدادات Secrets غير موجودة!")
 
-# معرف مجلد مكتب إشبيلية
-FOLDER_ID = "1W2CXAqHbZSBl3PUi0EvOan9TgU3oF-DZ" 
+# ضع هنا الـ ID الجديد للمجلد الجديد الذي أنشأته للتو
+FOLDER_ID = "ضع_الرقم_التعريفي_الجديد_هنا" 
 
 # --- 2. التحقق من الدخول ---
 if "authenticated" not in st.session_state:
@@ -30,7 +30,6 @@ if not st.session_state.authenticated:
         else:
             st.error("❌ خطأ!")
 else:
-    # --- 3. واجهة البرنامج ---
     st.sidebar.title("⭐ مكتب إشبيلية")
     menu = st.sidebar.radio("القائمة:", ["📥 إضافة وثيقة", "🔍 استعراض الأرشيف"])
 
@@ -44,7 +43,6 @@ else:
             if st.form_submit_button("رفع ✅"):
                 if uploaded_file and doc_name:
                     try:
-                        # تجهيز الملف
                         file_metadata = {
                             'name': f"{doc_type}_{doc_name}_{datetime.now().strftime('%Y-%m-%d')}",
                             'parents': [FOLDER_ID]
@@ -53,35 +51,33 @@ else:
                         media = MediaIoBaseUpload(io.BytesIO(uploaded_file.read()), 
                                                  mimetype=uploaded_file.type)
 
-                        # --- الحل الجذري هنا ---
-                        # نقوم بإنشاء الملف مع التأكيد على دعم المساحات المشتركة
+                        # إرسال الطلب مع دعم المساحات المشتركة بشكل إلزامي
                         file = drive_service.files().create(
                             body=file_metadata,
                             media_body=media,
                             fields='id',
-                            supportsAllDrives=True # السماح بالرفع لمجلدك الشخصي
+                            supportsAllDrives=True  # هذا السطر ضروري جداً
                         ).execute()
                         
-                        # خطوة إضافية: نقل "الملكية البرمجية" للمجلد الأب
-                        st.success("✅ تم الرفع بنجاح لمجلد Seville Archive!")
+                        st.success("✅ تم الرفع بنجاح!")
                         st.balloons()
                     except Exception as e:
-                        if "storageQuotaExceeded" in str(e):
-                            st.error("⚠️ لا تزال هناك مشكلة في مساحة الحساب. جرب إنشاء مجلد جديد تماماً ومشاركته مرة أخرى.")
-                        else:
-                            st.error(f"❌ فشل: {e}")
+                        st.error(f"❌ فشل الرفع: {e}")
 
     elif menu == "🔍 استعراض الأرشيف":
         st.header("📂 الملفات الحالية")
         if st.button("تحديث 🔄"):
-            results = drive_service.files().list(
-                q=f"'{FOLDER_ID}' in parents and trashed = false",
-                fields="files(id, name, webViewLink)",
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True
-            ).execute()
-            items = results.get('files', [])
-            for item in items:
-                col1, col2 = st.columns([4, 1])
-                col1.write(f"📄 {item['name']}")
-                col2.markdown(f"[🔗 عرض]({item['webViewLink']})")
+            try:
+                results = drive_service.files().list(
+                    q=f"'{FOLDER_ID}' in parents and trashed = false",
+                    fields="files(id, name, webViewLink)",
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True
+                ).execute()
+                items = results.get('files', [])
+                for item in items:
+                    col1, col2 = st.columns([4, 1])
+                    col1.write(f"📄 {item['name']}")
+                    col2.markdown(f"[🔗 عرض]({item['webViewLink']})")
+            except Exception as e:
+                st.error(f"فشل جلب الملفات: {e}")

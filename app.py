@@ -5,10 +5,10 @@ import base64
 from datetime import datetime
 import shutil
 from PIL import Image
-from fpdf import FPDF # تأكد أنها مكتبة fpdf2
+from fpdf import FPDF
 
-# --- 1. الإعدادات والتنسيق الجمالي (CSS) ---
-st.set_page_config(page_title="نظام الأرشفة المطور - المكتب العلمي", layout="wide", page_icon="📂")
+# --- 1. إعدادات الهوية البصرية (CSS) ---
+st.set_page_config(page_title="نظام الأرشفة المطور v4", layout="wide", page_icon="📂")
 
 st.markdown("""
     <style>
@@ -28,7 +28,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. تهيئة النظام وقاعدة البيانات ---
+# --- 2. تهيئة المجلدات وقاعدة البيانات ---
 DB_FILE = "scientific_archive_final.csv"
 USER_IMG_DIR = "user_profiles"
 ARCHIVE_DIR = "archive_storage"
@@ -52,23 +52,24 @@ def load_data():
     return pd.DataFrame(columns=COLUMNS)
 
 def export_to_pdf(row):
+    # استخدام fpdf2 لمعالجة البيانات بشكل أفضل
     pdf = FPDF()
     pdf.add_page()
-    # نستخدم خط Helvetica لأنه مدعوم افتراضياً في fpdf2
     pdf.set_font("Helvetica", 'B', 16)
     pdf.cell(200, 10, txt="Document Information Report", ln=True, align='C')
     pdf.ln(10)
-    pdf.set_font("Helvetica", size=11)
+    pdf.set_font("Helvetica", size=10)
     
     for col in COLUMNS:
-        # لحل مشكلة Unicode: نقوم بتنظيف النص من الحروف العربية مؤقتاً عند التصدير للـ PDF 
-        # لضمان عدم حدوث Error، مع بقاء البيانات سليمة في قاعدة البيانات.
-        clean_text = str(row[col]).encode('ascii', 'ignore').decode('ascii')
-        pdf.multi_cell(0, 10, txt=f"{col}: {clean_text if clean_text else '---'}", border=0)
+        # لتجنب خطأ UnicodeEncodeError، نقوم بتنظيف النص عند التصدير فقط
+        # النص الأصلي سيبقى بالعربي في جدول البيانات
+        val = str(row[col]).encode('ascii', 'ignore').decode('ascii')
+        pdf.multi_cell(0, 8, txt=f"{col}: {val if val else 'N/A'}", border=0)
+        pdf.ln(2)
     
-    return pdf.output() # fpdf2 تعيد bytes مباشرة
+    return pdf.output()
 
-# --- 3. نظام الدخول وحفظ الجلسة ---
+# --- 3. نظام تسجيل الدخول ---
 if "auth" not in st.session_state: st.session_state.auth = False
 
 if not st.session_state.auth:
@@ -83,7 +84,7 @@ if not st.session_state.auth:
                     st.session_state.auth, st.session_state.user_id = True, u
                     st.session_state.page = "dash"
                     st.rerun()
-                else: st.error("بيانات خاطئة!")
+                else: st.error("بيانات غير صحيحة")
     st.stop()
 
 df = load_data()
@@ -91,42 +92,42 @@ user_info = USERS[st.session_state.user_id]
 
 # --- 4. القائمة الجانبية ---
 with st.sidebar:
-    st.title("📂 الأرشفة الإلكترونية")
+    st.title("📂 أرشفة المكتب العلمي")
     st.markdown("---")
     if st.button("📊 لوحة المؤشرات"): st.session_state.page = "dash"; st.rerun()
     if st.button("📝 إنشاء وثيقة جديدة"): st.session_state.page = "new"; st.rerun()
     if st.button("🔍 البحث والإدارة"): st.session_state.page = "search"; st.rerun()
     if st.button("⚙️ الإعدادات"): st.session_state.page = "settings"; st.rerun()
     st.markdown("---")
-    if st.button("🚪 خروج"): st.session_state.auth = False; st.rerun()
+    if st.button("🚪 تسجيل الخروج"): st.session_state.auth = False; st.rerun()
 
-# --- 5. محتوى الصفحات ---
+# --- 5. صفحات النظام ---
 
-# أ. لوحة المؤشرات
+# أ. الداشبورد
 if st.session_state.page == "dash":
-    img_p = os.path.join(USER_IMG_DIR, f"{st.session_state.user_id}.png")
-    avatar = img_p if os.path.exists(img_p) else "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
-    st.markdown(f'<div class="user-header"><img src="{avatar}" class="user-img"><div class="user-text"><h2>أهلاً، {user_info["name"]}</h2><p>الصلاحية: {user_info["role"]}</p></div></div>', unsafe_allow_html=True)
+    img_path = os.path.join(USER_IMG_DIR, f"{st.session_state.user_id}.png")
+    avatar = img_path if os.path.exists(img_path) else "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+    st.markdown(f'<div class="user-header"><img src="{avatar}" class="user-img"><div class="user-text"><h2>أهلاً بك، {user_info["name"]}</h2><p>الصلاحية: {user_info["role"]}</p></div></div>', unsafe_allow_html=True)
     
     c1, c2, c3 = st.columns(3)
     c1.markdown(f'<div class="card blue-card"><h3>إجمالي الوثائق</h3><h2>{len(df)}</h2></div>', unsafe_allow_html=True)
-    c2.markdown(f'<div class="card red-card"><h3>وثائق عاجلة/هام</h3><h2>{len(df[df["Tags"].str.contains("عاجل|هام", na=False)])}</h2></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="card red-card"><h3>وثائق عاجلة</h3><h2>{len(df[df["Tags"].str.contains("عاجل|هام", na=False)])}</h2></div>', unsafe_allow_html=True)
     c3.markdown(f'<div class="card yellow-card"><h3>المستخدمين</h3><h2>{len(USERS)}</h2></div>', unsafe_allow_html=True)
-    st.subheader("📑 أحدث الإضافات")
+    st.subheader("📑 آخر النشاطات")
     st.dataframe(df.tail(10), use_container_width=True, hide_index=True)
 
 # ب. إنشاء وثيقة جديدة
 elif st.session_state.page == "new":
-    st.title("📝 تسجيل وثيقة جديدة")
-    with st.form("new_doc_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        with c1:
+    st.title("📝 إنشاء سجل أرشفة جديد")
+    with st.form("new_entry_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
             f_type = st.selectbox("Type", ["صادر", "وارد", "داخلي"])
             f_num = st.text_input("Document Number")
             f_date = st.date_input("Document Date")
             f_from = st.text_input("From")
             f_to = st.text_input("To")
-        with c2:
+        with col2:
             f_sub = st.text_input("Subject")
             f_kw = st.text_input("Keywords")
             f_link = st.text_input("Linked Documents")
@@ -134,22 +135,25 @@ elif st.session_state.page == "new":
             f_desc = st.text_area("Attachment Description")
         f_up = st.file_uploader("File Names (رفع المرفقات)", accept_multiple_files=True)
         
-        if st.form_submit_button("حفظ المستند"):
-            id_no = f"REG-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            f_list = ""
-            if f_up:
-                for f in f_up:
-                    with open(os.path.join(ARCHIVE_DIR, f"{id_no}_{f.name}"), "wb") as file: file.write(f.getbuffer())
-                    f_list += f.name + "; "
-            new_r = [id_no, f_type, f_num, str(f_date), f_from, f_to, f_sub, f_kw, f_desc, f_list, f_link, ", ".join(f_tags), st.session_state.user_id, datetime.now().strftime("%Y-%m-%d %H:%M")]
-            df.loc[len(df)] = new_r
-            df.to_csv(DB_FILE, index=False)
-            st.success("✅ تم الحفظ بنجاح!"); st.rerun()
+        if st.form_submit_button("حفظ الوثيقة"):
+            if f_num and f_sub:
+                id_no = f"REG-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                f_str = ""
+                if f_up:
+                    for f in f_up:
+                        with open(os.path.join(ARCHIVE_DIR, f"{id_no}_{f.name}"), "wb") as file:
+                            file.write(f.getbuffer())
+                        f_str += f.name + "; "
+                new_row = [id_no, f_type, f_num, str(f_date), f_from, f_to, f_sub, f_kw, f_desc, f_str, f_link, ", ".join(f_tags), st.session_state.user_id, datetime.now().strftime("%Y-%m-%d %H:%M")]
+                df.loc[len(df)] = new_row
+                df.to_csv(DB_FILE, index=False)
+                st.success(f"تم الحفظ بنجاح! رقم القيد: {id_no}")
+            else: st.error("يرجى ملء الحقول الأساسية")
 
-# ج. البحث، التعديل، الحذف، والمعاينة
+# ج. البحث والإدارة (تعديل، حذف، استعراض)
 elif st.session_state.page == "search":
-    st.title("🔍 إدارة وتعديل الأرشيف")
-    q = st.text_input("بحث شامل...")
+    st.title("🔍 إدارة الأرشيف")
+    q = st.text_input("بحث سريع في كافة الحقول...")
     res = df[df.apply(lambda r: r.astype(str).str.contains(q, case=False).any(), axis=1)] if q else df
     st.dataframe(res, use_container_width=True, hide_index=True)
 
@@ -159,18 +163,17 @@ elif st.session_state.page == "search":
         if sel_id != "---":
             idx = df[df["ID NO"] == sel_id].index[0]
             row = df.loc[idx]
-            t1, t2, t3 = st.tabs(["📄 استعراض ومعاينة", "✏️ تعديل كافة البنود", "🗑️ حذف الوثيقة"])
+            t1, t2, t3 = st.tabs(["📄 استعراض ومعاينة", "✏️ تعديل شامل", "🗑️ إجراءات الحذف"])
             
             with t1:
-                col_i, col_p = st.columns([1, 1.5])
-                with col_i:
+                ci, cp = st.columns([1, 1.5])
+                with ci:
                     st.info(f"الموضوع: {row['Subject']}")
                     try:
-                        pdf_b = export_to_pdf(row)
-                        st.download_button("📄 تصدير البيانات PDF", pdf_b, file_name=f"{sel_id}.pdf")
-                    except:
-                        st.error("خطأ في تصدير PDF")
-                with col_p:
+                        pdf_bytes = export_to_pdf(row)
+                        st.download_button("📄 تحميل تقرير البيانات (PDF)", pdf_bytes, file_name=f"Report_{sel_id}.pdf")
+                    except: st.error("خطأ في تصدير التقرير")
+                with cp:
                     if not pd.isna(row["File Names"]) and row["File Names"] != "":
                         files = [f for f in row["File Names"].split("; ") if f]
                         s_file = st.selectbox("اختر ملفاً للمعاينة:", files)
@@ -179,38 +182,44 @@ elif st.session_state.page == "search":
                             with open(f_path, "rb") as f: st.download_button(f"📥 تحميل {s_file}", f, file_name=s_file)
                             if s_file.lower().endswith('.pdf'):
                                 with open(f_path, "rb") as f:
-                                    b64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                                st.markdown(f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="500"></iframe>', unsafe_allow_html=True)
+                                    b64 = base64.b64encode(f.read()).decode('utf-8')
+                                st.markdown(f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="500"></iframe>', unsafe_allow_html=True)
             
             with t2:
-                with st.form("edit_all"):
+                with st.form("edit_full_form"):
                     c1, c2 = st.columns(2)
                     with c1:
                         e_type = st.selectbox("Type", ["صادر", "وارد", "داخلي"], index=["صادر", "وارد", "داخلي"].index(row["Type"]))
-                        e_num = st.text_input("Doc Number", value=row["Document Number"])
-                        e_date = st.text_input("Doc Date", value=row["Document Date"])
+                        e_num = st.text_input("Document Number", value=row["Document Number"])
+                        e_date = st.text_input("Document Date", value=row["Document Date"])
                         e_from = st.text_input("From", value=row["From"])
                         e_to = st.text_input("To", value=row["To"])
                         e_sub = st.text_input("Subject", value=row["Subject"])
                     with c2:
                         e_kw = st.text_input("Keywords", value=row["Keywords"])
-                        e_link = st.text_input("Linked Docs", value=row["Linked Documents"])
+                        e_link = st.text_input("Linked Documents", value=row["Linked Documents"])
                         e_tags = st.text_input("Tags", value=row["Tags"])
-                        e_desc = st.text_area("Description", value=row["Attachment Description"])
-                    if st.form_submit_button("💾 حفظ التعديلات"):
+                        e_desc = st.text_area("Attachment Description", value=row["Attachment Description"])
+                    if st.form_submit_button("💾 تحديث كافة البيانات"):
                         df.loc[idx, ["Type", "Document Number", "Document Date", "From", "To", "Subject", "Keywords", "Linked Documents", "Tags", "Attachment Description"]] = [e_type, e_num, e_date, e_from, e_to, e_sub, e_kw, e_link, e_tags, e_desc]
                         df.at[idx, "Last Modified"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                         df.to_csv(DB_FILE, index=False); st.success("تم التحديث!"); st.rerun()
 
             with t3:
-                if st.button("⚠️ حذف السجل"):
-                    df = df.drop(idx); df.to_csv(DB_FILE, index=False); st.success("تم الحذف!"); st.rerun()
+                if st.button("🚨 حذف السجل والملفات نهائياً"):
+                    if not pd.isna(row["File Names"]):
+                        for f in row["File Names"].split("; "):
+                            if f:
+                                p = os.path.join(ARCHIVE_DIR, f"{sel_id}_{f}")
+                                if os.path.exists(p): os.remove(p)
+                    df = df.drop(idx); df.to_csv(DB_FILE, index=False); st.success("تم الحذف"); st.rerun()
 
 # د. الإعدادات
 elif st.session_state.page == "settings":
-    st.title("⚙️ الإعدادات")
-    up_img = st.file_uploader("تحديث صورتك الشخصية", type=["png", "jpg"])
+    st.title("⚙️ الإعدادات الشخصية")
+    new_pic = st.file_uploader("رفع صورة شخصية جديدة", type=["png", "jpg"])
     if st.button("حفظ الصورة"):
-        if up_img:
-            with open(os.path.join(USER_IMG_DIR, f"{st.session_state.user_id}.png"), "wb") as f: f.write(up_img.getbuffer())
-            st.success("تم التحديث!"); st.rerun()
+        if new_pic:
+            with open(os.path.join(USER_IMG_DIR, f"{st.session_state.user_id}.png"), "wb") as f:
+                f.write(new_pic.getbuffer())
+            st.success("تم التحديث بنجاح!"); st.rerun()

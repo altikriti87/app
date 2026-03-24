@@ -1,5 +1,2 @@
-streamlit
-pandas
-google-api-python-client
-google-auth
-openpyxl
+archive_data.csv
+attachments/

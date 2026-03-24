@@ -1,62 +1,76 @@
 import streamlit as st
 from datetime import date
 
-# إعدادات الصفحة
+# 1. إعدادات الصفحة
 st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide", initial_sidebar_state="collapsed")
 
-# إدارة الحالة (Navigation)
+# CSS لإخفاء الأزرار وجعلها شفافة فوق البطاقات
+st.markdown("""
+<style>
+    .stButton button {
+        width: 100%;
+        height: 120px;
+        background-color: transparent;
+        color: transparent;
+        border: none;
+        position: absolute;
+        z-index: 10;
+    }
+    .stButton button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: transparent;
+        border: none;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# إدارة الحالة
 if 'page' not in st.session_state:
     st.session_state['page'] = 'dashboard'
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# 1. دالة تسجيل الدخول
+# --- الدوال ---
+
 def login():
     st.markdown("<h2 style='text-align: center;'>تسجيل الدخول للنظام</h2>", unsafe_allow_html=True)
-    with st.container():
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            username = st.text_input("اسم المستخدم")
-            password = st.text_input("كلمة المرور", type="password")
-            if st.button("دخول", use_container_width=True):
-                if username == "admin" and password == "1234":
-                    st.session_state['logged_in'] = True
-                    st.rerun()
-                else:
-                    st.error("خطأ في البيانات")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        username = st.text_input("اسم المستخدم")
+        password = st.text_input("كلمة المرور", type="password")
+        if st.button("دخول", key="login_btn"):
+            if username == "admin" and password == "1234":
+                st.session_state['logged_in'] = True
+                st.rerun()
+            else:
+                st.error("خطأ في البيانات")
 
-# 2. صفحة إضافة مستند (Add Document)
 def add_document_page():
-    st.markdown("<h2 style='text-align: center;'>إضافة مستند جديد</h2>", unsafe_allow_html=True)
-    
-    if st.button("⬅️ العودة للوحة التحكم"):
+    st.markdown("<h2 style='text-align: right;'>إضافة مستند جديد</h2>", unsafe_allow_html=True)
+    if st.button("⬅️ العودة للوحة التحكم", key="back_home"):
         st.session_state['page'] = 'dashboard'
         st.rerun()
-
-    with st.form("document_form", clear_on_submit=True):
+    
+    st.write("---")
+    with st.container():
         col1, col2 = st.columns(2)
-        
         with col1:
-            doc_type = st.selectbox("Document Type", ["كتاب رسمي", "تقرير", "عقد", "مراسلة internal"])
+            doc_type = st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار", "أخرى"])
             doc_date = st.date_input("Enter document date", value=date.today())
             sender = st.text_input("Enter sender")
             receiver = st.text_input("Enter receiver")
-
+        
         with col2:
             subject = st.text_input("Document subject")
-            keywords = st.text_input("Keywords (comma separated)", placeholder="e.g. finance, urgent, 2024")
-            tags = st.text_input("Enter tags", placeholder="tag-one, tag-two")
-            attachment_desc = st.text_area("Attachment description or type")
+            keywords = st.text_input("Keywords (comma separated)")
+            tags = st.text_input("Enter tags (use - for words, , or ; for tags)")
+            attach_desc = st.text_area("Attachment description or type")
         
-        uploaded_file = st.file_uploader("رفع المرفقات (Attachments)", accept_multiple_files=True)
-
-        submit_btn = st.form_submit_button("حفظ المستند")
+        uploaded_files = st.file_uploader("رفع المرفقات", accept_multiple_files=True)
         
-        if submit_btn:
-            # هنا يمكنك إضافة كود حفظ البيانات في قاعدة البيانات
-            st.success("تم حفظ المستند بنجاح!")
+        if st.button("حفظ البيانات", use_container_width=True):
+            st.success("تم الحفظ بنجاح (تجريبي)")
 
-# 3. الواجهة الرئيسية
 def main_dashboard():
     st.markdown("<h1 style='text-align: center; color: #333;'>لوحة تحكم نظام الأرشفة</h1>", unsafe_allow_html=True)
     st.write("---")
@@ -75,31 +89,36 @@ def main_dashboard():
     cols = st.columns(4)
     for index, card in enumerate(cards):
         with cols[index % 4]:
-            # تصميم البطاقة
+            # حاوية نسبية لجمع الزر مع التصميم
             st.markdown(f"""
+            <div style="position: relative; height: 120px; margin-bottom: 20px;">
                 <div style="
                     background-color: {card['color']};
-                    padding: 30px 10px;
-                    border-radius: 12px 12px 0 0;
-                    text-align: center;
+                    height: 120px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     color: white;
-                    font-size: 18px;
+                    font-size: 20px;
                     font-weight: bold;
                     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
                 ">
                     {card['name']}
                 </div>
+            </div>
             """, unsafe_allow_html=True)
             
-            # زر التفاعل أسفل كل بطاقة
-            if st.button(f"فتح {card['name']}", key=card['id'], use_container_width=True):
+            # الزر الشفاف الذي يغطي البطاقة تماماً
+            # ملاحظة: نضعه في "فراغ" فوق التصميم باستخدام CSS أعلاه
+            if st.button("", key=f"btn_{card['id']}"):
                 if card['id'] == "add":
                     st.session_state['page'] = 'add_doc'
                     st.rerun()
                 else:
-                    st.info(f"تم النقر على {card['name']} - هذه الخاصية قيد التطوير")
+                    st.toast(f"تم اختيار {card['name']}")
 
-# منطق التشغيل النهائي
+# --- منطق التشغيل ---
 if not st.session_state['logged_in']:
     login()
 else:

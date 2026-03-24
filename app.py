@@ -1,80 +1,107 @@
 import streamlit as st
 from datetime import date
 
-st.set_page_config(page_title="نظام الأرشفة", layout="wide", initial_sidebar_state="collapsed")
+# 1. إعدادات الصفحة
+st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide")
 
-# CSS لإجبار الأزرار على أخذ شكل الكروت والألوان
+# 2. تصميم الأزرار الجانبية باستخدام CSS
 st.markdown("""
 <style>
-    /* تنسيق عام لكل الأزرار */
-    div.stButton > button {
-        width: 100% !important;
-        height: 140px !important;
-        border-radius: 15px !important;
-        font-size: 22px !important;
-        font-weight: bold !important;
-        color: white !important;
-        border: none !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-        transition: 0.3s !important;
+    /* تنسيق أزرار القائمة الجانبية */
+    .stButton > button {
+        width: 100%;
+        border-radius: 5px;
+        height: 3em;
+        background-color: #f0f2f6;
+        color: #31333F;
+        border: 1px solid #dcdde1;
+        text-align: right;
+        font-weight: bold;
+        margin-bottom: 0.5em;
     }
-
-    /* ربط الألوان بالترتيب (الأعمدة) */
-    /* الصف الأول */
-    div[data-testid="column"]:nth-of-type(1) button { background-color: #28a745 !important; }
-    div[data-testid="column"]:nth-of-type(2) button { background-color: #007bff !important; }
-    div[data-testid="column"]:nth-of-type(3) button { background-color: #fd7e14 !important; }
-    div[data-testid="column"]:nth-of-type(4) button { background-color: #dc3545 !important; }
-    
-    /* الصف الثاني (في بعض المتصفحات نحتاج لتحديد أدق) */
-    div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-of-type(1) button { background-color: #6c757d !important; }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-of-type(2) button { background-color: #6f42c1 !important; }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-of-type(3) button { background-color: #17a2b8 !important; }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-of-type(4) button { background-color: #ffc107 !important; }
-
-    div.stButton > button:hover {
-        transform: scale(1.03) !important;
-        filter: brightness(1.1) !important;
+    /* تغيير لون الزر عند المرور عليه */
+    .stButton > button:hover {
+        border-color: #28a745;
+        color: #28a745;
+    }
+    /* تنسيق خاص لزر الخروج أو الأزرار المهمة */
+    .stButton > button[key="logout"] {
+        color: #dc3545;
     }
 </style>
 """, unsafe_allow_html=True)
 
-if 'page' not in st.session_state: st.session_state['page'] = 'main'
+# 3. إدارة الحالة (Navigation State)
+if 'menu_option' not in st.session_state:
+    st.session_state['menu_option'] = 'الرئيسية'
 
-if st.session_state['page'] == 'main':
-    st.markdown("<h1 style='text-align: center;'>لوحة التحكم</h1>", unsafe_allow_html=True)
+# --- القائمة الجانبية (Sidebar) ---
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/3845/3845868.png", width=80) # أيقونة اختيارية
+    st.title("القائمة الرئيسية")
+    st.write("---")
     
-    # الصف الأول
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        if st.button("Add Document"): 
-            st.session_state['page'] = 'add'
-            st.rerun()
-    with col2: st.button("Search")
-    with col3: st.button("Edit Document")
-    with col4: st.button("Delete Document")
+    # الأزرار الجانبية
+    if st.button("🏠 الصفحة الرئيسية", use_container_width=True):
+        st.session_state['menu_option'] = 'الرئيسية'
+    
+    if st.button("➕ إضافة مستند جديد", use_container_width=True):
+        st.session_state['menu_option'] = 'إضافة'
+    
+    if st.button("🔍 البحث عن مستند", use_container_width=True):
+        st.session_state['menu_option'] = 'بحث'
+        
+    if st.button("📝 تعديل مستند", use_container_width=True):
+        st.session_state['menu_option'] = 'تعديل'
+        
+    if st.button("📊 عرض الكل", use_container_width=True):
+        st.session_state['menu_option'] = 'عرض'
+        
+    st.write("---")
+    if st.button("🚪 تسجيل الخروج", key="logout", use_container_width=True):
+        st.info("تم تسجيل الخروج")
 
-    # الصف الثاني
-    col5, col6, col7, col8 = st.columns(4)
-    with col5: st.button("Show All")
-    with col6: st.button("Link Documents")
-    with col7: st.button("Backup Data")
-    with col8: st.button("Restore Backup")
+# --- محتوى الصفحة الرئيسي ---
 
-elif st.session_state['page'] == 'add':
+# 1. واجهة الرئيسية
+if st.session_state['menu_option'] == 'الرئيسية':
+    st.title("مرحباً بك في نظام الأرشفة")
+    st.info("اختر أحد الخيارات من القائمة الجانبية للبدء")
+    
+    # إحصائيات سريعة
+    col1, col2, col3 = st.columns(3)
+    col1.metric("إجمالي المستندات", "1,250")
+    col2.metric("مستندات اليوم", "14")
+    col3.metric("المساحة المستخدمة", "1.2 GB")
+
+# 2. واجهة إضافة مستند
+elif st.session_state['menu_option'] == 'إضافة':
     st.header("إضافة مستند جديد")
-    if st.button("عودة"): 
-        st.session_state['page'] = 'main'
-        st.rerun()
+    st.write("يرجى تعبئة البيانات التالية بدقة:")
     
-    # حقول الإدخال
-    doc_type = st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار"])
-    doc_date = st.date_input("Enter document date", value=date.today())
-    sender = st.text_input("Enter sender")
-    receiver = st.text_input("Enter receiver")
-    subject = st.text_input("Document subject")
-    keywords = st.text_input("Keywords (comma separated)")
-    tags = st.text_input("Enter tags")
-    desc = st.text_area("Attachment description")
-    files = st.file_uploader("رفع المرفقات", accept_multiple_files=True)
-    if st.button("حفظ"): st.success("تم الحفظ!")
+    with st.container():
+        col1, col2 = st.columns(2)
+        with col1:
+            doc_type = st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار", "تقرير"])
+            doc_date = st.date_input("Enter document date", value=date.today())
+            sender = st.text_input("Enter sender")
+            receiver = st.text_input("Enter receiver")
+        
+        with col2:
+            subject = st.text_input("Document subject")
+            keywords = st.text_input("Keywords (comma separated)")
+            tags = st.text_input("Enter tags (use - for words, , or ; for tags)")
+            attachment_desc = st.text_area("Attachment description or type")
+            
+        uploaded_files = st.file_uploader("رفع المرفقات للوثيقة", accept_multiple_files=True)
+        
+        if st.button("حفظ المستند في الأرشيف", type="primary"):
+            if subject:
+                st.success(f"✅ تم حفظ المستند: {subject} بنجاح")
+            else:
+                st.warning("يرجى إدخال عنوان المستند على الأقل")
+
+# 3. واجهات تجريبية للبقية
+elif st.session_state['menu_option'] == 'بحث':
+    st.header("🔍 البحث في الأرشيف")
+    st.text_input("ادخل كلمة البحث أو رقم المستند...")

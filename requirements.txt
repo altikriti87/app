@@ -1,2 +1,4 @@
-pip uninstall fpdf
-pip install streamlit pandas pillow fpdf2
+streamlit
+pandas
+Pillow
+fpdf2

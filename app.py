@@ -4,15 +4,10 @@ from datetime import date
 # 1. إعدادات الصفحة
 st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide", initial_sidebar_state="collapsed")
 
-# 2. CSS القوي والمباشر لتلوين الأزرار حسب ترتيبها
+# 2. CSS احترافي لإجبار الألوان والقياسات على الأزرار
 st.markdown("""
 <style>
-    /* تنسيق الحاوية الكبيرة للأزرار */
-    .stColumn {
-        padding: 5px !important;
-    }
-
-    /* التنسيق الموحد لجميع الأزرار */
+    /* تنسيق موحد لجميع الأزرار */
     div.stButton > button {
         width: 100% !important;
         height: 140px !important;
@@ -23,87 +18,90 @@ st.markdown("""
         font-weight: bold !important;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
         transition: 0.3s !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 
-    /* تلوين الأزرار حسب ترتيب ظهورها في الصفحة */
-    /* الصف الأول */
-    div.stColumn:nth-of-type(1) div.stButton > button { background-color: #28a745 !important; } /* أخضر */
-    div.stColumn:nth-of-type(2) div.stButton > button { background-color: #007bff !important; } /* أزرق */
-    div.stColumn:nth-of-type(3) div.stButton > button { background-color: #fd7e14 !important; } /* برتقالي */
-    div.stColumn:nth-of-type(4) div.stButton > button { background-color: #dc3545 !important; } /* أحمر */
+    /* تخصيص الألوان لكل زر بناءً على الـ Key */
+    button[key="add"] { background-color: #28a745 !important; }
+    button[key="search"] { background-color: #007bff !important; }
+    button[key="edit"] { background-color: #fd7e14 !important; }
+    button[key="delete"] { background-color: #dc3545 !important; }
+    button[key="show"] { background-color: #6c757d !important; }
+    button[key="link"] { background-color: #6f42c1 !important; }
+    button[key="backup"] { background-color: #17a2b8 !important; }
+    button[key="restore"] { background-color: #ffc107 !important; }
 
-    /* الصف الثاني (يبدأ من العمود 5 تقنياً في بعض النسخ أو يعيد العد) */
-    /* ملاحظة: لضمان عملها على كل النسخ، نستخدم كود إضافي */
-    
+    /* تأثير عند تمرير الماوس */
     div.stButton > button:hover {
         transform: translateY(-5px) !important;
         filter: brightness(1.1) !important;
+        color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# إدارة التنقل
+# إدارة حالة الصفحة
 if 'page' not in st.session_state:
     st.session_state['page'] = 'dashboard'
 
-# --- صفحة الإضافة ---
+# --- صفحة إضافة مستند ---
 def add_document_page():
     st.markdown("<h2 style='text-align: center;'>إضافة مستند جديد</h2>", unsafe_allow_html=True)
-    if st.button("⬅️ عودة"):
+    if st.button("⬅️ العودة للوحة التحكم", key="back_btn"):
         st.session_state['page'] = 'dashboard'
         st.rerun()
     
-    with st.form("add_form"):
-        c1, c2 = st.columns(2)
-        with c1:
+    st.write("---")
+    with st.container():
+        col1, col2 = st.columns(2)
+        with col1:
             st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار"])
             st.date_input("Enter document date", value=date.today())
             st.text_input("Enter sender")
             st.text_input("Enter receiver")
-        with c2:
+        with col2:
             st.text_input("Document subject")
-            st.text_input("Keywords")
+            st.text_input("Keywords (comma separated)")
             st.text_input("Enter tags")
             st.text_area("Attachment description")
         
-        st.file_uploader("رفع المرفقات", accept_multiple_files=True)
-        if st.form_submit_button("حفظ", use_container_width=True):
-            st.success("تم الحفظ")
+        st.file_uploader("رفع المرفقات للوثيقة", accept_multiple_files=True)
+        if st.button("حفظ البيانات", use_container_width=True):
+            st.success("✅ تم حفظ البيانات بنجاح!")
 
 # --- لوحة التحكم ---
 def main_dashboard():
-    st.markdown("<h1 style='text-align: center;'>نظام الأرشفة الإلكتروني</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>لوحة تحكم نظام الأرشفة</h1>", unsafe_allow_html=True)
     st.write("---")
 
-    # الصف الأول
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        if st.button("Add Document"):
+    # الصف الأول (4 أعمدة)
+    row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4)
+    with row1_col1:
+        if st.button("Add Document", key="add"):
             st.session_state['page'] = 'add_doc'
             st.rerun()
-    with col2: st.button("Search")
-    with col3: st.button("Edit Document")
-    with col4: st.button("Delete Document")
+    with row1_col2:
+        st.button("Search", key="search")
+    with row1_col3:
+        st.button("Edit Document", key="edit")
+    with row1_col4:
+        st.button("Delete Document", key="delete")
 
-    # الصف الثاني (سنستخدم كود CSS مختلف قليلاً لتلوينها)
-    # لإبقاء الكود بسيطاً ومضمون الألوان، سنستخدم Markdown مدمج للألوان المتبقية
-    
-    col5, col6, col7, col8 = st.columns(4)
-    with col5: 
-        st.markdown("<style>div[data-testid='stHorizontalBlock'] > div:nth-child(1) button { background-color: #6c757d !important; }</style>", unsafe_allow_html=True)
-        st.button("Show All")
-    with col6:
-        st.markdown("<style>div[data-testid='stHorizontalBlock'] > div:nth-child(2) button { background-color: #6f42c1 !important; }</style>", unsafe_allow_html=True)
-        st.button("Link Docs")
-    with col7:
-        st.markdown("<style>div[data-testid='stHorizontalBlock'] > div:nth-child(3) button { background-color: #17a2b8 !important; }</style>", unsafe_allow_html=True)
-        st.button("Backup")
-    with row_8 := col8:
-        st.markdown("<style>div[data-testid='stHorizontalBlock'] > div:nth-child(4) button { background-color: #ffc107 !important; }</style>", unsafe_allow_html=True)
-        st.button("Restore")
+    # الصف الثاني (4 أعمدة)
+    row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4)
+    with row2_col1:
+        st.button("Show All Documents", key="show")
+    with row2_col2:
+        st.button("Link Documents", key="link")
+    with row2_col3:
+        st.button("Backup Data", key="backup")
+    with row2_col4:
+        st.button("Restore Backup", key="restore")
 
 # التشغيل
 if st.session_state['page'] == 'dashboard':
     main_dashboard()
-else:
+elif st.session_state['page'] == 'add_doc':
     add_document_page()

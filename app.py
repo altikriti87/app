@@ -5,7 +5,7 @@ import base64
 from datetime import datetime
 import shutil
 from PIL import Image
-from fpdf import FPDF
+from fpdf import FPDF # تأكد أنها مكتبة fpdf2
 
 # --- 1. الإعدادات والتنسيق الجمالي (CSS) ---
 st.set_page_config(page_title="نظام الأرشفة المطور - المكتب العلمي", layout="wide", page_icon="📂")
@@ -54,13 +54,19 @@ def load_data():
 def export_to_pdf(row):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
+    # نستخدم خط Helvetica لأنه مدعوم افتراضياً في fpdf2
+    pdf.set_font("Helvetica", 'B', 16)
     pdf.cell(200, 10, txt="Document Information Report", ln=True, align='C')
     pdf.ln(10)
-    pdf.set_font("Arial", size=12)
+    pdf.set_font("Helvetica", size=11)
+    
     for col in COLUMNS:
-        pdf.multi_cell(0, 10, txt=f"{col}: {row[col]}", border=0)
-    return pdf.output(dest='S').encode('latin-1')
+        # لحل مشكلة Unicode: نقوم بتنظيف النص من الحروف العربية مؤقتاً عند التصدير للـ PDF 
+        # لضمان عدم حدوث Error، مع بقاء البيانات سليمة في قاعدة البيانات.
+        clean_text = str(row[col]).encode('ascii', 'ignore').decode('ascii')
+        pdf.multi_cell(0, 10, txt=f"{col}: {clean_text if clean_text else '---'}", border=0)
+    
+    return pdf.output() # fpdf2 تعيد bytes مباشرة
 
 # --- 3. نظام الدخول وحفظ الجلسة ---
 if "auth" not in st.session_state: st.session_state.auth = False
@@ -109,7 +115,7 @@ if st.session_state.page == "dash":
     st.subheader("📑 أحدث الإضافات")
     st.dataframe(df.tail(10), use_container_width=True, hide_index=True)
 
-# ب. إنشاء وثيقة جديدة (الحقول الـ 14)
+# ب. إنشاء وثيقة جديدة
 elif st.session_state.page == "new":
     st.title("📝 تسجيل وثيقة جديدة")
     with st.form("new_doc_form", clear_on_submit=True):
@@ -143,7 +149,7 @@ elif st.session_state.page == "new":
 # ج. البحث، التعديل، الحذف، والمعاينة
 elif st.session_state.page == "search":
     st.title("🔍 إدارة وتعديل الأرشيف")
-    q = st.text_input("بحث شامل في كافة الحقول...")
+    q = st.text_input("بحث شامل...")
     res = df[df.apply(lambda r: r.astype(str).str.contains(q, case=False).any(), axis=1)] if q else df
     st.dataframe(res, use_container_width=True, hide_index=True)
 
@@ -159,8 +165,11 @@ elif st.session_state.page == "search":
                 col_i, col_p = st.columns([1, 1.5])
                 with col_i:
                     st.info(f"الموضوع: {row['Subject']}")
-                    pdf_b = export_to_pdf(row)
-                    st.download_button("📄 تصدير البيانات PDF", pdf_b, file_name=f"{sel_id}.pdf")
+                    try:
+                        pdf_b = export_to_pdf(row)
+                        st.download_button("📄 تصدير البيانات PDF", pdf_b, file_name=f"{sel_id}.pdf")
+                    except:
+                        st.error("خطأ في تصدير PDF")
                 with col_p:
                     if not pd.isna(row["File Names"]) and row["File Names"] != "":
                         files = [f for f in row["File Names"].split("; ") if f]
@@ -188,18 +197,13 @@ elif st.session_state.page == "search":
                         e_link = st.text_input("Linked Docs", value=row["Linked Documents"])
                         e_tags = st.text_input("Tags", value=row["Tags"])
                         e_desc = st.text_area("Description", value=row["Attachment Description"])
-                    if st.form_submit_button("💾 حفظ كافة التعديلات"):
+                    if st.form_submit_button("💾 حفظ التعديلات"):
                         df.loc[idx, ["Type", "Document Number", "Document Date", "From", "To", "Subject", "Keywords", "Linked Documents", "Tags", "Attachment Description"]] = [e_type, e_num, e_date, e_from, e_to, e_sub, e_kw, e_link, e_tags, e_desc]
                         df.at[idx, "Last Modified"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                         df.to_csv(DB_FILE, index=False); st.success("تم التحديث!"); st.rerun()
 
             with t3:
-                if st.button("⚠️ حذف السجل والملفات نهائياً"):
-                    if not pd.isna(row["File Names"]):
-                        for f in row["File Names"].split("; "):
-                            if f:
-                                p = os.path.join(ARCHIVE_DIR, f"{sel_id}_{f}")
-                                if os.path.exists(p): os.remove(p)
+                if st.button("⚠️ حذف السجل"):
                     df = df.drop(idx); df.to_csv(DB_FILE, index=False); st.success("تم الحذف!"); st.rerun()
 
 # د. الإعدادات

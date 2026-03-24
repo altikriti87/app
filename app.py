@@ -4,35 +4,52 @@ from datetime import date
 # 1. إعدادات الصفحة
 st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide", initial_sidebar_state="collapsed")
 
-# 2. CSS سحري لجعل الأزرار شفافة وتغطي البطاقات بالكامل
+# 2. CSS متطور لتحويل الأزرار إلى كروت تفاعلية بالكامل
 st.markdown("""
 <style>
-    /* جعل حاوية الزر تأخذ وضعية مطلقة فوق البطاقة */
-    .stButton {
-        position: relative;
-    }
-    .stButton > button {
-        position: absolute;
-        top: -140px; /* يغطي ارتفاع البطاقة */
-        left: 0;
+    /* تنسيق الحاوية لتبدو ككارت */
+    div.stButton > button {
+        display: block;
         width: 100%;
-        height: 120px;
-        background-color: transparent !important;
-        color: transparent !important;
-        border: none !important;
-        z-index: 10;
+        height: 150px; /* طول الكارت */
+        border-radius: 15px;
+        border: none;
+        color: white !important;
+        font-size: 22px !important;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        text-align: center;
+        margin-bottom: 10px;
     }
-    .stButton > button:hover {
-        background-color: rgba(255, 255, 255, 0.1) !important; /* تأثير بسيط عند المرور */
+
+    /* تخصيص الألوان لكل زر بناءً على المفتاح (Key) */
+    button[key="add"] { background-color: #28a745 !important; }
+    button[key="search"] { background-color: #007bff !important; }
+    button[key="edit"] { background-color: #fd7e14 !important; }
+    button[key="delete"] { background-color: #dc3545 !important; }
+    button[key="show"] { background-color: #6c757d !important; }
+    button[key="link"] { background-color: #6f42c1 !important; }
+    button[key="backup"] { background-color: #17a2b8 !important; }
+    button[key="restore"] { background-color: #ffc107 !important; }
+
+    /* تأثير الحركية عند تمرير الماوس فوق أي مكان في الكارت */
+    div.stButton > button:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        filter: brightness(1.1);
         border: none !important;
     }
-    .stButton > button:active {
-        background-color: rgba(0, 0, 0, 0.1) !important;
+    
+    /* إلغاء تأثير الضغط الافتراضي المشوه */
+    div.stButton > button:active {
+        transform: scale(0.98);
+        border: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# إدارة حالة التنقل
+# إدارة حالة التطبيق
 if 'page' not in st.session_state:
     st.session_state['page'] = 'dashboard'
 if 'logged_in' not in st.session_state:
@@ -40,88 +57,71 @@ if 'logged_in' not in st.session_state:
 
 # --- صفحة إضافة مستند ---
 def add_document_page():
-    st.markdown("<h2 style='text-align: right;'>إضافة مستند جديد</h2>", unsafe_allow_html=True)
-    if st.button("⬅️ العودة للوحة التحكم"):
+    st.markdown("<h2 style='text-align: center;'>إضافة مستند جديد</h2>", unsafe_allow_html=True)
+    if st.button("⬅️ العودة للوحة التحكم", key="back_btn"):
         st.session_state['page'] = 'dashboard'
         st.rerun()
     
-    st.write("---")
+    st.divider()
+    
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
-            doc_type = st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار", "أخرى"])
-            # التاريخ الافتراضي هو اليوم
-            doc_date = st.date_input("Enter document date", value=date.today())
-            sender = st.text_input("Enter sender")
-            receiver = st.text_input("Enter receiver")
-        
+            st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار", "تقرير"])
+            st.date_input("Enter document date", value=date.today())
+            st.text_input("Enter sender")
+            st.text_input("Enter receiver")
         with col2:
-            subject = st.text_input("Document subject")
-            keywords = st.text_input("Keywords (comma separated)")
-            tags = st.text_input("Enter tags (use - for words, , or ; for tags)")
-            attach_desc = st.text_area("Attachment description or type")
+            st.text_input("Document subject")
+            st.text_input("Keywords (comma separated)")
+            st.text_input("Enter tags (use - or ;)")
+            st.text_area("Attachment description")
         
-        uploaded_files = st.file_uploader("رفع المرفقات للوثيقة", accept_multiple_files=True)
+        st.file_uploader("رفع المرفقات للوثيقة", accept_multiple_files=True)
         
-        if st.button("حفظ المستند", use_container_width=True):
-            st.success("✅ تم حفظ البيانات بنجاح!")
+        if st.button("حفظ البيانات الآن", use_container_width=True, type="primary"):
+            st.success("✅ تم الحفظ بنجاح!")
 
-# --- لوحة التحكم الرئيسية ---
+# --- لوحة التحكم ---
 def main_dashboard():
-    st.markdown("<h1 style='text-align: center; color: #333;'>لوحة تحكم نظام الأرشفة</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>لوحة تحكم نظام الأرشفة</h1>", unsafe_allow_html=True)
     st.write("---")
 
-    cards = [
-        {"name": "Add Document", "color": "#28a745", "id": "add"},
-        {"name": "Search", "color": "#007bff", "id": "search"},
-        {"name": "Edit Document", "color": "#fd7e14", "id": "edit"},
-        {"name": "Delete Document", "color": "#dc3545", "id": "delete"},
-        {"name": "Show All Documents", "color": "#6c757d", "id": "show"},
-        {"name": "Link Documents", "color": "#6f42c1", "id": "link"},
-        {"name": "Backup Data", "color": "#17a2b8", "id": "backup"},
-        {"name": "Restore Backup", "color": "#ffc107", "id": "restore"}
-    ]
-
-    cols = st.columns(4)
-    for index, card in enumerate(cards):
-        with cols[index % 4]:
-            # 1. تصميم البطاقة (HTML)
-            st.markdown(f"""
-            <div style="
-                background-color: {card['color']};
-                height: 120px;
-                border-radius: 12px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-size: 19px;
-                font-weight: bold;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                margin-bottom: 20px;
-            ">
-                {card['name']}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # 2. الزر المخفي (الذي يتم تفعيله بالضغط)
-            if st.button("", key=f"btn_{card['id']}"):
-                if card['id'] == "add":
-                    st.session_state['page'] = 'add_doc'
-                    st.rerun()
-                else:
-                    st.toast(f"الخدمة {card['name']} قيد البرمجة")
-
-# --- منطق التشغيل ---
-if not st.session_state['logged_in']:
-    # دالة تسجيل الدخول المبسطة
-    st.markdown("<h2 style='text-align: center;'>تسجيل الدخول</h2>", unsafe_allow_html=True)
-    user = st.text_input("User")
-    pw = st.text_input("Pass", type="password")
-    if st.button("دخول"):
-        if user == "admin" and pw == "1234":
-            st.session_state['logged_in'] = True
+    # تقسيم الكروت إلى صفوف وأعمدة
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("Add Document", key="add"):
+            st.session_state['page'] = 'add_doc'
             st.rerun()
+
+    with col2:
+        if st.button("Search", key="search"):
+            st.toast("جاري فتح البحث...")
+
+    with col3:
+        st.button("Edit Document", key="edit")
+
+    with col4:
+        st.button("Delete Document", key="delete")
+
+    col5, col6, col7, col8 = st.columns(4)
+    with col5:
+        st.button("Show All", key="show")
+    with col6:
+        st.button("Link Documents", key="link")
+    with col7:
+        st.button("Backup Data", key="backup")
+    with col8:
+        st.button("Restore Backup", key="restore")
+
+# التشغيل
+if not st.session_state['logged_in']:
+    # محاكاة تسجيل الدخول لغرض العرض
+    st.info("اضغط على الزر أدناه للدخول للنظام")
+    if st.button("تسجيل الدخول (تجريبي)"):
+        st.session_state['logged_in'] = True
+        st.rerun()
 else:
     if st.session_state['page'] == 'dashboard':
         main_dashboard()

@@ -1,5 +1,2 @@
-streamlit
-pandas
-Pillow
-fpdf
-openpyxl
+pip uninstall fpdf
+pip install fpdf2

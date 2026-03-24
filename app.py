@@ -1,10 +1,9 @@
 import streamlit as st
-import pandas as pd
 
 # إعدادات الصفحة
 st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide", initial_sidebar_state="collapsed")
 
-# 1. دالة التحقق من تسجيل الدخول
+# 1. دالة تسجيل الدخول
 def login():
     st.markdown("<h2 style='text-align: center;'>تسجيل الدخول للنظام</h2>", unsafe_allow_html=True)
     with st.container():
@@ -13,65 +12,53 @@ def login():
             username = st.text_input("اسم المستخدم")
             password = st.text_input("كلمة المرور", type="password")
             if st.button("دخول", use_container_width=True):
-                if username == "admin" and password == "1234": # يمكنك تغييرها لاحقاً
+                if username == "admin" and password == "1234":
                     st.session_state['logged_in'] = True
                     st.rerun()
                 else:
-                    st.error("خطأ في البيانات، حاول مرة أخرى")
+                    st.error("خطأ في البيانات")
 
-# 2. الواجهة الرئيسية (Dashboard)
+# 2. الواجهة الرئيسية
 def main_dashboard():
     st.markdown("<h1 style='text-align: center; color: #333;'>لوحة تحكم نظام الأرشفة</h1>", unsafe_allow_html=True)
     st.write("---")
 
-    # تعريف البطاقات وألوانها
+    # قائمة البطاقات مع الألوان المحددة
     cards = [
-        {"name": "Add Document", "color": "#28a745", "icon": "➕"},
-        {"name": "Search", "color": "#007bff", "icon": "🔍"},
-        {"name": "Edit Document", "color": "#fd7e14", "icon": "📝"},
-        {"name": "Delete Document", "color": "#dc3545", "icon": "🗑️"},
-        {"name": "Show All Documents", "color": "#6c757d", "icon": "📋"},
-        {"name": "Link Documents", "color": "#6f42c1", "icon": "🔗"},
-        {"name": "Backup Data", "color": "#17a2b8", "icon": "💾"},
-        {"name": "Restore Backup", "color": "#ffc107", "icon": "🔄"}
+        {"name": "Add Document", "color": "#28a745"},      # أخضر
+        {"name": "Search", "color": "#007bff"},            # أزرق
+        {"name": "Edit Document", "color": "#fd7e14"},      # برتقالي
+        {"name": "Delete Document", "color": "#dc3545"},    # أحمر
+        {"name": "Show All Documents", "color": "#6c757d"}, # رمادي
+        {"name": "Link Documents", "color": "#6f42c1"},     # أرجواني
+        {"name": "Backup Data", "color": "#17a2b8"},        # سماوي
+        {"name": "Restore Backup", "color": "#ffc107"}      # أصفر
     ]
 
-    # عرض البطاقات في شبكة (Grid)
+    # عرض البطاقات في شبكة
     cols = st.columns(4)
     for index, card in enumerate(cards):
         with cols[index % 4]:
-            # كود CSS لتصميم البطاقة
-            card_html = f"""
+            # تصميم البطاقة بدون أزرار "فتح"
+            card_design = f"""
             <div style="
                 background-color: {card['color']};
-                padding: 30px;
-                border-radius: 15px;
+                padding: 40px 20px;
+                border-radius: 12px;
                 text-align: center;
                 color: white;
                 margin-bottom: 20px;
-                cursor: pointer;
-                box-shadow: 2px 4px 10px rgba(0,0,0,0.1);
-                transition: 0.3s;
-                height: 150px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
+                font-size: 20px;
+                font-weight: bold;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                border: none;
             ">
-                <div style="font-size: 30px;">{card['icon']}</div>
-                <div style="font-size: 18px; font-weight: bold; margin-top: 10px;">{card['name']}</div>
+                {card['name']}
             </div>
             """
-            st.markdown(card_html, unsafe_allow_html=True)
-            if st.button(f"فتح {card['name']}", key=card['name'], use_container_width=True):
-                st.info(f"تم الانتقال إلى صفحة: {card['name']}")
+            st.markdown(card_design, unsafe_allow_html=True)
 
-    # زر تسجيل الخروج في الجانب
-    if st.sidebar.button("تسجيل الخروج"):
-        st.session_state['logged_in'] = False
-        st.rerun()
-
-# 3. منطق تشغيل التطبيق
+# منطق التشغيل
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 

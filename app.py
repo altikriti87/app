@@ -4,62 +4,63 @@ from datetime import date
 # 1. إعدادات الصفحة
 st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide", initial_sidebar_state="collapsed")
 
-# 2. CSS مخصص للتحكم في الألوان والقياسات وجعل الكارت قابلاً للضغط
+# 2. CSS احترافي لتحويل الأزرار إلى كروت ملونة بالكامل
 st.markdown("""
 <style>
-    /* حاوية الكارت */
-    .card-container {
-        position: relative;
+    /* تنسيق عام لكل الأزرار في الصفحة */
+    div.stButton > button {
+        width: 100%;
         height: 140px;
         border-radius: 12px;
+        border: none;
+        color: white !important;
+        font-size: 20px !important;
+        font-weight: bold;
+        transition: 0.3s;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
-        font-size: 20px;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        transition: transform 0.2s;
     }
 
-    /* جعل زر Streamlit يغطي الكارت تماماً ويصبح شفافاً */
-    .stButton > button {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 140px; /* نفس قياس الكارت */
-        background-color: transparent !important;
-        border: none !important;
-        color: transparent !important;
-        z-index: 10;
-        cursor: pointer;
-    }
-    
-    .stButton > button:hover {
-        background-color: rgba(255, 255, 255, 0.1) !important;
-    }
+    /* تخصيص الألوان بناءً على مفتاح الزر (Key) */
+    button[key="add"] { background-color: #28a745 !important; }
+    button[key="search"] { background-color: #007bff !important; }
+    button[key="edit"] { background-color: #fd7e14 !important; }
+    button[key="delete"] { background-color: #dc3545 !important; }
+    button[key="show"] { background-color: #6c757d !important; }
+    button[key="link"] { background-color: #6f42c1 !important; }
+    button[key="backup"] { background-color: #17a2b8 !important; }
+    button[key="restore"] { background-color: #ffc107 !important; }
 
-    /* تأثير عند تمرير الماوس على الحاوية */
-    .card-container:hover {
+    /* تأثير عند تمرير الماوس */
+    div.stButton > button:hover {
         transform: translateY(-5px);
         filter: brightness(1.1);
+        color: white !important;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    }
+    
+    /* إلغاء أي حدود افتراضية من ستريم ليت */
+    div.stButton > button:focus, div.stButton > button:active {
+        outline: none !important;
+        box-shadow: none !important;
+        border: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# إدارة حالة الصفحة
+# إدارة الحالة (Navigation)
 if 'page' not in st.session_state:
     st.session_state['page'] = 'dashboard'
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# --- صفحة إضافة مستند ---
+# --- دالة صفحة الإضافة ---
 def add_document_page():
     st.markdown("<h2 style='text-align: center;'>إضافة مستند جديد</h2>", unsafe_allow_html=True)
-    if st.button("⬅️ العودة للوحة التحكم", key="back"):
+    if st.button("⬅️ العودة للوحة التحكم", key="back_nav"):
         st.session_state['page'] = 'dashboard'
         st.rerun()
     
@@ -67,60 +68,55 @@ def add_document_page():
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
-            st.selectbox("Document Type", ["كتاب رسمي", "تقرير", "عقد", "أخرى"])
+            st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار"])
             st.date_input("Enter document date", value=date.today())
             st.text_input("Enter sender")
             st.text_input("Enter receiver")
         with col2:
             st.text_input("Document subject")
             st.text_input("Keywords (comma separated)")
-            st.text_input("Enter tags (tag1, tag2)")
+            st.text_input("Enter tags")
             st.text_area("Attachment description")
         
-        st.file_uploader("رفع المرفقات", accept_multiple_files=True)
-        if st.button("حفظ البيانات", use_container_width=True, type="primary"):
+        st.file_uploader("رفع المرفقات للوثيقة", accept_multiple_files=True)
+        if st.button("حفظ البيانات", use_container_width=True):
             st.success("تم الحفظ بنجاح!")
 
 # --- لوحة التحكم ---
 def main_dashboard():
-    st.markdown("<h1 style='text-align: center; color: #333;'>لوحة تحكم نظام الأرشفة</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>لوحة تحكم نظام الأرشفة</h1>", unsafe_allow_html=True)
     st.write("---")
 
-    # قائمة البيانات (الألوان والأسماء والترتيب)
-    cards = [
-        {"name": "Add Document", "color": "#28a745", "id": "add"},
-        {"name": "Search", "color": "#007bff", "id": "search"},
-        {"name": "Edit Document", "color": "#fd7e14", "id": "edit"},
-        {"name": "Delete Document", "color": "#dc3545", "id": "delete"},
-        {"name": "Show All Documents", "color": "#6c757d", "id": "show"},
-        {"name": "Link Documents", "color": "#6f42c1", "id": "link"},
-        {"name": "Backup Data", "color": "#17a2b8", "id": "backup"},
-        {"name": "Restore Backup", "color": "#ffc107", "id": "restore"}
-    ]
+    # توزيع الكروت في صفين (4 أعمدة لكل صف)
+    row1 = st.columns(4)
+    row2 = st.columns(4)
 
-    # عرض البطاقات في شبكة 4x2
-    cols = st.columns(4)
-    for index, card in enumerate(cards):
-        with cols[index % 4]:
-            # إنشاء الكارت الملون (HTML) والزر الشفاف (Streamlit) في نفس المكان
-            st.markdown(f"""
-                <div class="card-container" style="background-color: {card['color']};">
-                    {card['name']}
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # الزر يوضع برمجياً بعد الـ HTML مباشرة ويتم رفعه فوقه بواسطة CSS
-            if st.button("", key=f"btn_{card['id']}"):
-                if card['id'] == "add":
-                    st.session_state['page'] = 'add_doc'
-                    st.rerun()
-                else:
-                    st.toast(f"تم النقر على {card['name']}")
+    # الصف الأول
+    with row1[0]:
+        if st.button("Add Document", key="add"):
+            st.session_state['page'] = 'add_doc'
+            st.rerun()
+    with row1[1]:
+        st.button("Search", key="search")
+    with row1[2]:
+        st.button("Edit Document", key="edit")
+    with row1[3]:
+        st.button("Delete Document", key="delete")
 
-# --- التشغيل ---
+    # الصف الثاني
+    with row2[0]:
+        st.button("Show All Documents", key="show")
+    with row2[1]:
+        st.button("Link Documents", key="link")
+    with row2[2]:
+        st.button("Backup Data", key="backup")
+    with row2[3]:
+        st.button("Restore Backup", key="restore")
+
+# --- التنفيذ ---
 if not st.session_state['logged_in']:
-    st.title("تسجيل الدخول")
-    if st.button("دخول للنظام (Admin)"):
+    # شاشة دخول بسيطة جداً للتجربة
+    if st.button("اضغط هنا للدخول للنظام (محاكاة)"):
         st.session_state['logged_in'] = True
         st.rerun()
 else:

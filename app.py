@@ -5,14 +5,14 @@ from datetime import date
 # 1. إعدادات الصفحة
 st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide")
 
-# 2. تهيئة مخزن البيانات (إذا لم يكن موجوداً)
+# 2. تهيئة مخزن البيانات
 if 'archive_data' not in st.session_state:
     st.session_state['archive_data'] = []
 
 if 'menu_option' not in st.session_state:
     st.session_state['menu_option'] = 'الرئيسية'
 
-# 3. CSS لتحسين مظهر الأزرار الجانبية
+# 3. CSS لتحسين مظهر الأزرار
 st.markdown("""
 <style>
     .stButton > button {
@@ -36,19 +36,19 @@ with st.sidebar:
     st.write("---")
     if st.button("🏠 الصفحة الرئيسية"): st.session_state['menu_option'] = 'الرئيسية'
     if st.button("➕ إضافة مستند جديد"): st.session_state['menu_option'] = 'إضافة'
+    if st.button("🔍 البحث عن مستند"): st.session_state['menu_option'] = 'بحث'  # الزر الجديد
     if st.button("📊 عرض الكل"): st.session_state['menu_option'] = 'عرض'
     st.write("---")
     if st.button("🚪 خروج", key="logout"): st.info("تم تسجيل الخروج")
 
 # --- محتوى الصفحة الرئيسي ---
 
-# 1. الصفحة الرئيسية (إحصائيات)
+# 1. الصفحة الرئيسية
 if st.session_state['menu_option'] == 'الرئيسية':
     st.title("لوحة التحكم الرئيسية")
     total_docs = len(st.session_state['archive_data'])
-    
     col1, col2, col3 = st.columns(3)
-    col1.metric("إجمالي المستندات المؤرشفة", total_docs)
+    col1.metric("إجمالي المستندات", total_docs)
     col2.metric("مستندات اليوم", sum(1 for d in st.session_state['archive_data'] if d['تاريخ الأرشفة'] == str(date.today())))
     col3.metric("حالة النظام", "متصل")
 
@@ -66,12 +66,9 @@ elif st.session_state['menu_option'] == 'إضافة':
             receiver = st.text_input("الجهة المستلمة")
             tags = st.text_input("الكلمات الدلالية / الوسوم")
         
-        uploaded_files = st.file_uploader("إرفاق الملفات", accept_multiple_files=True)
         submit = st.form_submit_button("حفظ في الأرشيف")
-        
         if submit:
             if subject and sender:
-                # إنشاء قاموس بالبيانات الجديدة
                 new_doc = {
                     "الموضوع": subject,
                     "النوع": doc_type,
@@ -81,30 +78,44 @@ elif st.session_state['menu_option'] == 'إضافة':
                     "الوسوم": tags,
                     "تاريخ الأرشفة": str(date.today())
                 }
-                # إضافة البيانات للمخزن
                 st.session_state['archive_data'].append(new_doc)
                 st.success(f"✅ تم حفظ المستند '{subject}' بنجاح!")
             else:
-                st.error("⚠️ يرجى ملء الحقول الأساسية (الموضوع والجهة المرسلة)")
+                st.error("⚠️ يرجى ملء الحقول الأساسية")
 
-# 3. صفحة عرض الكل
+# 3. صفحة البحث (الجديدة)
+elif st.session_state['menu_option'] == 'بحث':
+    st.header("🔍 البحث عن مستند")
+    
+    if not st.session_state['archive_data']:
+        st.warning("لا توجد بيانات للبحث فيها. يرجى إضافة مستندات أولاً.")
+    else:
+        # خيارات البحث
+        search_query = st.text_input("أدخل كلمة البحث (موضوع، مرسل، أو وسم):")
+        search_col = st.selectbox("ابحث في حقل محدد:", ["الكل", "الموضوع", "المرسل", "الوسوم"])
+        
+        if search_query:
+            df = pd.DataFrame(st.session_state['archive_data'])
+            
+            # منطق الفلترة
+            if search_col == "الكل":
+                mask = df.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)
+            else:
+                mask = df[search_col].str.contains(search_query, case=False)
+            
+            results = df[mask]
+            
+            if not results.empty:
+                st.write(f"تم العثور على {len(results)} نتيجة:")
+                st.dataframe(results, use_container_width=True, hide_index=True)
+            else:
+                st.error("لم يتم العثور على نتائج تطابق بحثك.")
+
+# 4. صفحة عرض الكل
 elif st.session_state['menu_option'] == 'عرض':
     st.header("📊 جميع المستندات المؤرشفة")
-    
-    if len(st.session_state['archive_data']) > 0:
-        # تحويل قائمة البيانات إلى DataFrame (جدول)
+    if st.session_state['archive_data']:
         df = pd.DataFrame(st.session_state['archive_data'])
-        
-        # إضافة خاصية البحث داخل الجدول
-        search_term = st.text_input("🔍 بحث سريع في الجدول...", "")
-        if search_term:
-            df = df[df.apply(lambda row: row.astype(str).str.contains(search_term, case=False).any(), axis=1)]
-        
-        # عرض الجدول بشكل تفاعلي
         st.dataframe(df, use_container_width=True, hide_index=True)
-        
-        # خيار تحميل البيانات كملف Excel
-        csv = df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 تحميل التقرير (CSV)", data=csv, file_name="archive_report.csv", mime="text/csv")
     else:
-        st.warning("لا توجد مستندات مؤرشفة حالياً. قم بإضافة مستند أولاً.")
+        st.warning("الأرشيف فارغ حالياً.")

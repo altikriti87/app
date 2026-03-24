@@ -1,2 +1,2 @@
-archive_data.csv
-attachments/
+streamlit
+pandas

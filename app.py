@@ -1,91 +1,109 @@
 import streamlit as st
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-import io
+import pandas as pd
+import os
 from datetime import datetime
 
-# --- 1. الإعدادات ---
-if "gcp_service_account" in st.secrets:
-    info = st.secrets["gcp_service_account"]
-    credentials = service_account.Credentials.from_service_account_info(info)
-    drive_service = build('drive', 'v3', credentials=credentials)
-else:
-    st.error("⚠️ إعدادات Secrets غير موجودة!")
+# --- إعدادات الصفحة ---
+st.set_page_config(page_title="نظام الأرشفة المحمي", layout="wide")
 
-# المعرف الجديد للمجلد (V2) الذي أنشأته
-FOLDER_ID = "1i0ziiky_QsBPXjaM6RexlEOXDTY9Zg1D" 
+# --- نظام تسجيل الدخول ---
+def check_password():
+    """تحقق من صحة بيانات الدخول"""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
 
-# --- 2. نظام الدخول ---
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    st.markdown("<h2 style='text-align: center;'>🔐 نظام أرشفة مكتب إشبيلية العلمي</h2>", unsafe_allow_html=True)
-    pwd = st.text_input("أدخل كلمة المرور:", type="password")
-    if st.button("دخول"):
-        if pwd == st.secrets.get("password", "admin123"):
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("❌ كلمة المرور غير صحيحة")
-else:
-    st.sidebar.title("⭐ مكتب إشبيلية")
-    menu = st.sidebar.radio("القائمة:", ["📥 إضافة وثيقة", "🔍 استعراض الأرشيف"])
-
-    if menu == "📥 إضافة وثيقة":
-        st.header("📝 أرشفة وثيقة جديدة")
-        with st.form("upload_form", clear_on_submit=True):
-            doc_name = st.text_input("عنوان الوثيقة")
-            doc_type = st.selectbox("التصنيف", ["وارد", "صادر", "تسجيل دواء", "حسابات", "أخرى"])
-            uploaded_file = st.file_uploader("اختر الملف", type=['pdf', 'png', 'jpg', 'jpeg'])
+    if not st.session_state.authenticated:
+        st.title("🔐 تسجيل الدخول للنظام")
+        with st.form("login_form"):
+            user = st.text_input("اسم المستخدم")
+            password = st.text_input("كلمة المرور", type="password")
+            submit = st.form_submit_button("دخول")
             
-            if st.form_submit_button("رفع إلى Google Drive ✅"):
-                if uploaded_file and doc_name:
-                    try:
-                        file_metadata = {
-                            'name': f"{doc_type}_{doc_name}_{datetime.now().strftime('%Y-%m-%d')}",
-                            'parents': [FOLDER_ID]
-                        }
-                        
-                        media = MediaIoBaseUpload(
-                            io.BytesIO(uploaded_file.read()), 
-                            mimetype=uploaded_file.type,
-                            resumable=True
-                        )
+            if submit:
+                if user == "admin" and password == "admin":
+                    st.session_state.authenticated = True
+                    st.rerun() # إعادة تشغيل لعرض النظام
+                else:
+                    st.error("❌ بيانات الدخول غير صحيحة")
+        return False
+    return True
 
-                        # تنفيذ الرفع مع دعم المساحات المشتركة
-                        file = drive_service.files().create(
-                            body=file_metadata,
-                            media_body=media,
-                            fields='id',
-                            supportsAllDrives=True 
-                        ).execute()
-                        
-                        st.success("✅ تم الرفع بنجاح!")
-                        st.balloons()
-                    except Exception as e:
-                        if "storageQuotaExceeded" in str(e):
-                            st.error("⚠️ مشكلة في الحصة. سأحاول الآن حلها يدوياً...")
-                            st.info("💡 الحل البديل: اذهب إلى المجلد في المتصفح، واضغط على 'مشاركة'، ثم تأكد من أن حساب الخدمة هو 'محرر' (Editor) وليس 'مشاهد'.")
-                        else:
-                            st.error(f"❌ فشل: {e}")
+# --- إذا تم تسجيل الدخول بنجاح، اعرض النظام ---
+if check_password():
+    # زر خروج في القائمة الجانبية
+    if st.sidebar.button("تسجيل الخروج"):
+        st.session_state.authenticated = False
+        st.rerun()
 
-    elif menu == "🔍 استعراض الأرشيف":
-        st.header("📂 الملفات الحالية")
-        if st.button("تحديث القائمة 🔄"):
-            try:
-                results = drive_service.files().list(
-                    q=f"'{FOLDER_ID}' in parents and trashed = false",
-                    fields="files(id, name, webViewLink)",
-                    supportsAllDrives=True,
-                    includeItemsFromAllDrives=True
-                ).execute()
-                items = results.get('files', [])
-                for item in items:
-                    col1, col2 = st.columns([4, 1])
-                    col1.write(f"📄 {item['name']}")
-                    col2.markdown(f"[🔗 عرض]({item['webViewLink']})")
-                    st.divider()
-            except Exception as e:
-                st.error(f"حدث خطأ: {e}")
+    # --- بداية كود نظام الأرشفة ---
+    if not os.path.exists("attachments"):
+        os.makedirs("attachments")
+
+    DB_FILE = "archive_data.csv"
+
+    def load_data():
+        if os.path.exists(DB_FILE):
+            return pd.read_csv(DB_FILE)
+        else:
+            return pd.DataFrame(columns=[
+                "الرقم التسلسلي", "رقم المستند", "الجهة الواردة", 
+                "الجهة المصدرة", "الموضوع", "الكلمات المفتاحية", 
+                "تاريخ الأرشفة", "اسم المرفق"
+            ])
+
+    df = load_data()
+
+    st.title("📂 نظام الأرشفة الإلكتروني - لوحة التحكم")
+    st.markdown(f"**مرحباً بك: admin** | التاريخ الحالي: {datetime.now().strftime('%Y/%d/%m')}")
+    st.markdown("---")
+
+    # واجهة المدخلات
+    with st.expander("➕ أرشفة مستند جديد", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            doc_number = st.text_input("رقم المستند")
+            incoming_entity = st.text_input("الجهة الواردة")
+            outgoing_entity = st.text_input("الجهة المصدرة")
+        with col2:
+            subject = st.text_input("الموضوع")
+            keywords = st.text_input("الكلمات المفتاحية (مثال: فواتير، أدوية)")
+            uploaded_file = st.file_uploader("ارفق المستند (PDF/Images)")
+
+        if st.button("حفظ المستند"):
+            if doc_number and subject:
+                timestamp = datetime.now().strftime("%Y%d%m%H%M%S")
+                serial_number = f"ARC-{timestamp}"
+                
+                file_name = "لا يوجد"
+                if uploaded_file is not None:
+                    file_name = f"{serial_number}_{uploaded_file.name}"
+                    with open(os.path.join("attachments", file_name), "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                
+                new_entry = {
+                    "الرقم التسلسلي": serial_number,
+                    "رقم المستند": doc_number,
+                    "الجهة الواردة": incoming_entity,
+                    "الجهة المصدرة": outgoing_entity,
+                    "الموضوع": subject,
+                    "الكلمات المفتاحية": keywords,
+                    "تاريخ الأرشفة": datetime.now().strftime("%Y/%d/%m"),
+                    "اسم المرفق": file_name
+                }
+                
+                df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+                df.to_csv(DB_FILE, index=False)
+                st.success(f"✅ تم الحفظ بنجاح! الرقم التسلسلي: {serial_number}")
+                st.rerun()
+            else:
+                st.warning("⚠️ يرجى إدخال البيانات الأساسية")
+
+    # البحث والعرض
+    st.markdown("---")
+    search_query = st.text_input("🔍 بحث سريع (بالموضوع، الرقم، أو الكلمات المفتاحية)")
+    
+    if search_query:
+        mask = df.apply(lambda r: r.astype(str).str.contains(search_query).any(), axis=1)
+        st.dataframe(df[mask], use_container_width=True)
+    else:
+        st.dataframe(df, use_container_width=True)

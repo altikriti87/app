@@ -4,10 +4,10 @@ from datetime import date
 # 1. إعدادات الصفحة
 st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide", initial_sidebar_state="collapsed")
 
-# 2. كود CSS (يجب أن يكون داخل st.markdown ليعمل)
+# 2. كود CSS المطور (لحل مشكلة الضغط فوق الكلمة)
 st.markdown("""
 <style>
-    /* جعل الحاوية تسمح بتداخل العناصر */
+    /* حاوية العمود */
     [data-testid="column"] {
         position: relative;
     }
@@ -27,9 +27,11 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         position: relative;
         z-index: 1;
+        /* السر هنا: تجعل النص لا يعترض النقرات */
+        pointer-events: none; 
     }
 
-    /* جعل زر ستريم ليت شفافاً تماماً ومطابقاً لحجم الكارت */
+    /* تصميم زر ستريم ليت الشفاف */
     .stButton > button {
         position: absolute;
         top: 0;
@@ -43,12 +45,10 @@ st.markdown("""
         cursor: pointer;
     }
 
-    /* إخفاء حدود الزر عند الضغط */
-    .stButton > button:focus, .stButton > button:active {
-        background-color: transparent !important;
-        color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
+    /* تأثيرات عند تمرير الماوس فوق الكارت */
+    .stButton > button:hover {
+        border: 2px solid rgba(255,255,255,0.5) !important;
+        background-color: rgba(255,255,255,0.05) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -60,26 +60,26 @@ if 'page' not in st.session_state:
 # --- صفحة إضافة مستند ---
 def add_document_page():
     st.markdown("<h2 style='text-align: center;'>إضافة مستند جديد</h2>", unsafe_allow_html=True)
-    if st.button("⬅️ العودة", key="back_nav"):
+    if st.button("⬅️ العودة للوحة التحكم", key="back_home"):
         st.session_state['page'] = 'dashboard'
         st.rerun()
     
     st.write("---")
-    with st.form("doc_form"):
+    with st.form("archive_form"):
         col1, col2 = st.columns(2)
         with col1:
-            st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار"])
+            st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار", "تقرير"])
             st.date_input("Enter document date", value=date.today())
             st.text_input("Enter sender")
             st.text_input("Enter receiver")
         with col2:
             st.text_input("Document subject")
-            st.text_input("Keywords")
+            st.text_input("Keywords (comma separated)")
             st.text_input("Enter tags")
             st.text_area("Attachment description")
         
         st.file_uploader("رفع المرفقات", accept_multiple_files=True)
-        if st.form_submit_button("حفظ البيانات", use_container_width=True):
+        if st.form_submit_button("حفظ المستند", use_container_width=True):
             st.success("تم الحفظ بنجاح!")
 
 # --- لوحة التحكم الرئيسية ---
@@ -87,8 +87,7 @@ def main_dashboard():
     st.markdown("<h1 style='text-align: center;'>لوحة تحكم نظام الأرشفة</h1>", unsafe_allow_html=True)
     st.write("---")
 
-    # بيانات الكروت
-    cards_data = [
+    cards = [
         {"name": "Add Document", "color": "#28a745", "id": "add"},
         {"name": "Search", "color": "#007bff", "id": "search"},
         {"name": "Edit Document", "color": "#fd7e14", "id": "edit"},
@@ -99,22 +98,22 @@ def main_dashboard():
         {"name": "Restore Backup", "color": "#ffc107", "id": "restore"}
     ]
 
-    # رسم الكروت في صفين (4 أعمدة لكل صف)
-    for i in range(0, len(cards_data), 4):
+    # رسم الكروت في صفوف (4 في كل صف)
+    for i in range(0, len(cards), 4):
         cols = st.columns(4)
         for j in range(4):
-            if i + j < len(cards_data):
-                card = cards_data[i + j]
+            if i + j < len(cards):
+                card = cards[i + j]
                 with cols[j]:
-                    # رسم الشكل الملون
+                    # 1. طبقة التصميم (الخلفية الملونة والنص)
                     st.markdown(f'<div class="custom-card" style="background-color: {card["color"]};">{card["name"]}</div>', unsafe_allow_html=True)
-                    # وضع الزر الشفاف فوقه
+                    # 2. طبقة الزر (الشفافة التي تغطي كل شيء وتستقبل النقرات)
                     if st.button("", key=f"btn_{card['id']}"):
                         if card['id'] == "add":
                             st.session_state['page'] = 'add_doc'
                             st.rerun()
                         else:
-                            st.toast(f"تم اختيار: {card['name']}")
+                            st.toast(f"تم النقر على {card['name']}")
 
 # التشغيل
 if st.session_state['page'] == 'dashboard':

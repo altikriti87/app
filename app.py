@@ -1,107 +1,110 @@
 import streamlit as st
+import pandas as pd
 from datetime import date
 
 # 1. إعدادات الصفحة
 st.set_page_config(page_title="نظام الأرشفة الإلكتروني", layout="wide")
 
-# 2. تصميم الأزرار الجانبية باستخدام CSS
+# 2. تهيئة مخزن البيانات (إذا لم يكن موجوداً)
+if 'archive_data' not in st.session_state:
+    st.session_state['archive_data'] = []
+
+if 'menu_option' not in st.session_state:
+    st.session_state['menu_option'] = 'الرئيسية'
+
+# 3. CSS لتحسين مظهر الأزرار الجانبية
 st.markdown("""
 <style>
-    /* تنسيق أزرار القائمة الجانبية */
     .stButton > button {
         width: 100%;
         border-radius: 5px;
         height: 3em;
-        background-color: #f0f2f6;
-        color: #31333F;
-        border: 1px solid #dcdde1;
         text-align: right;
         font-weight: bold;
         margin-bottom: 0.5em;
     }
-    /* تغيير لون الزر عند المرور عليه */
     .stButton > button:hover {
         border-color: #28a745;
         color: #28a745;
     }
-    /* تنسيق خاص لزر الخروج أو الأزرار المهمة */
-    .stButton > button[key="logout"] {
-        color: #dc3545;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# 3. إدارة الحالة (Navigation State)
-if 'menu_option' not in st.session_state:
-    st.session_state['menu_option'] = 'الرئيسية'
-
 # --- القائمة الجانبية (Sidebar) ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3845/3845868.png", width=80) # أيقونة اختيارية
-    st.title("القائمة الرئيسية")
+    st.title("🗄️ نظام الأرشفة")
     st.write("---")
-    
-    # الأزرار الجانبية
-    if st.button("🏠 الصفحة الرئيسية", use_container_width=True):
-        st.session_state['menu_option'] = 'الرئيسية'
-    
-    if st.button("➕ إضافة مستند جديد", use_container_width=True):
-        st.session_state['menu_option'] = 'إضافة'
-    
-    if st.button("🔍 البحث عن مستند", use_container_width=True):
-        st.session_state['menu_option'] = 'بحث'
-        
-    if st.button("📝 تعديل مستند", use_container_width=True):
-        st.session_state['menu_option'] = 'تعديل'
-        
-    if st.button("📊 عرض الكل", use_container_width=True):
-        st.session_state['menu_option'] = 'عرض'
-        
+    if st.button("🏠 الصفحة الرئيسية"): st.session_state['menu_option'] = 'الرئيسية'
+    if st.button("➕ إضافة مستند جديد"): st.session_state['menu_option'] = 'إضافة'
+    if st.button("📊 عرض الكل"): st.session_state['menu_option'] = 'عرض'
     st.write("---")
-    if st.button("🚪 تسجيل الخروج", key="logout", use_container_width=True):
-        st.info("تم تسجيل الخروج")
+    if st.button("🚪 خروج", key="logout"): st.info("تم تسجيل الخروج")
 
 # --- محتوى الصفحة الرئيسي ---
 
-# 1. واجهة الرئيسية
+# 1. الصفحة الرئيسية (إحصائيات)
 if st.session_state['menu_option'] == 'الرئيسية':
-    st.title("مرحباً بك في نظام الأرشفة")
-    st.info("اختر أحد الخيارات من القائمة الجانبية للبدء")
+    st.title("لوحة التحكم الرئيسية")
+    total_docs = len(st.session_state['archive_data'])
     
-    # إحصائيات سريعة
     col1, col2, col3 = st.columns(3)
-    col1.metric("إجمالي المستندات", "1,250")
-    col2.metric("مستندات اليوم", "14")
-    col3.metric("المساحة المستخدمة", "1.2 GB")
+    col1.metric("إجمالي المستندات المؤرشفة", total_docs)
+    col2.metric("مستندات اليوم", sum(1 for d in st.session_state['archive_data'] if d['تاريخ الأرشفة'] == str(date.today())))
+    col3.metric("حالة النظام", "متصل")
 
-# 2. واجهة إضافة مستند
+# 2. صفحة إضافة مستند
 elif st.session_state['menu_option'] == 'إضافة':
     st.header("إضافة مستند جديد")
-    st.write("يرجى تعبئة البيانات التالية بدقة:")
-    
-    with st.container():
-        col1, col2 = st.columns(2)
-        with col1:
-            doc_type = st.selectbox("Document Type", ["كتاب رسمي", "تعميم", "قرار", "تقرير"])
-            doc_date = st.date_input("Enter document date", value=date.today())
-            sender = st.text_input("Enter sender")
-            receiver = st.text_input("Enter receiver")
+    with st.form("add_form", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        with c1:
+            doc_type = st.selectbox("نوع المستند", ["كتاب رسمي", "تعميم", "قرار", "تقرير"])
+            doc_date = st.date_input("تاريخ المستند", value=date.today())
+            sender = st.text_input("الجهة المرسلة")
+        with c2:
+            subject = st.text_input("الموضوع (Subject)")
+            receiver = st.text_input("الجهة المستلمة")
+            tags = st.text_input("الكلمات الدلالية / الوسوم")
         
-        with col2:
-            subject = st.text_input("Document subject")
-            keywords = st.text_input("Keywords (comma separated)")
-            tags = st.text_input("Enter tags (use - for words, , or ; for tags)")
-            attachment_desc = st.text_area("Attachment description or type")
-            
-        uploaded_files = st.file_uploader("رفع المرفقات للوثيقة", accept_multiple_files=True)
+        uploaded_files = st.file_uploader("إرفاق الملفات", accept_multiple_files=True)
+        submit = st.form_submit_button("حفظ في الأرشيف")
         
-        if st.button("حفظ المستند في الأرشيف", type="primary"):
-            if subject:
-                st.success(f"✅ تم حفظ المستند: {subject} بنجاح")
+        if submit:
+            if subject and sender:
+                # إنشاء قاموس بالبيانات الجديدة
+                new_doc = {
+                    "الموضوع": subject,
+                    "النوع": doc_type,
+                    "تاريخ المستند": str(doc_date),
+                    "المرسل": sender,
+                    "المستلم": receiver,
+                    "الوسوم": tags,
+                    "تاريخ الأرشفة": str(date.today())
+                }
+                # إضافة البيانات للمخزن
+                st.session_state['archive_data'].append(new_doc)
+                st.success(f"✅ تم حفظ المستند '{subject}' بنجاح!")
             else:
-                st.warning("يرجى إدخال عنوان المستند على الأقل")
+                st.error("⚠️ يرجى ملء الحقول الأساسية (الموضوع والجهة المرسلة)")
 
-# 3. واجهات تجريبية للبقية
-elif st.session_state['menu_option'] == 'بحث':
-    st.header("🔍 البحث في الأرشيف")
-    st.text_input("ادخل كلمة البحث أو رقم المستند...")
+# 3. صفحة عرض الكل
+elif st.session_state['menu_option'] == 'عرض':
+    st.header("📊 جميع المستندات المؤرشفة")
+    
+    if len(st.session_state['archive_data']) > 0:
+        # تحويل قائمة البيانات إلى DataFrame (جدول)
+        df = pd.DataFrame(st.session_state['archive_data'])
+        
+        # إضافة خاصية البحث داخل الجدول
+        search_term = st.text_input("🔍 بحث سريع في الجدول...", "")
+        if search_term:
+            df = df[df.apply(lambda row: row.astype(str).str.contains(search_term, case=False).any(), axis=1)]
+        
+        # عرض الجدول بشكل تفاعلي
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        
+        # خيار تحميل البيانات كملف Excel
+        csv = df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button("📥 تحميل التقرير (CSV)", data=csv, file_name="archive_report.csv", mime="text/csv")
+    else:
+        st.warning("لا توجد مستندات مؤرشفة حالياً. قم بإضافة مستند أولاً.")

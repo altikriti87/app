@@ -768,8 +768,7 @@ with app.app_context():
 # تشغيل التطبيق
 # ======================
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=8080, debug=False)  # غير المنفذ إلى 8080
     
     print("=" * 50)
     print("🚀 نظام الأرشفة والمراسلات الداخلية")

@@ -1,13 +1,10 @@
 """
 نظام الأرشفة والمراسلات الداخلية
-إصدار Python Flask - ملف واحد متكامل
-متوافق مع Python 3.14 والإصدارات الأحدث
+نظام ويب متكامل لإدارة المستندات والمراسلات الداخلية
+متعدد المستخدمين مع صلاحيات متدرجة
 """
 
 import os
-import sys
-import signal
-import hashlib
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -20,7 +17,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # إعدادات التطبيق
 # ======================
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'my-secret-key-change-in-production-2024')
+
+# إعدادات الأمان - يفضل تغيير المفتاح في الإنتاج
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'my-secret-key-change-in-production-2025')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///archiving.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -43,7 +42,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
-    role = db.Column(db.String(20), default='employee')
+    role = db.Column(db.String(20), default='employee')  # admin, employee, viewer
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def set_password(self, password):
@@ -250,7 +249,7 @@ INDEX_TEMPLATE = '''
 <div class="content">
     <h2>المستندات والمراسلات</h2>
     <table class="documents-table">
-        <thead><tr><th>#</th><th>العنوان</th><th>النوع</th><th>القسم</th><th>درجة السرية</th><th>التاريخ</th><th>العمليات</th> </tr> </thead>
+        <thead>汽<br>汽<th>#</th><th>العنوان</th><th>النوع</th><th>القسم</th><th>درجة السرية</th><th>التاريخ</th><th>العمليات</th> </thead>
         <tbody>
             {% for doc in documents %}
             <tr>
@@ -766,21 +765,17 @@ with app.app_context():
         print("✅ تم إنشاء المستخدم admin بكلمة مرور admin123")
 
 # ======================
-# تشغيل التطبيق (متوافق مع جميع البيئات)
+# تشغيل التطبيق
 # ======================
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    
     print("=" * 50)
     print("🚀 نظام الأرشفة والمراسلات الداخلية")
-    print("📍 يعمل على: http://localhost:5000")
+    print(f"📍 يعمل على: http://localhost:{port}")
     print("👤 المستخدم: admin")
     print("🔑 كلمة المرور: admin123")
     print("=" * 50)
     
-    # الحصول على المنفذ من متغيرات البيئة (لخدمات الاستضافة)
-    port = int(os.environ.get('PORT', 5000))
-    
-    # تشغيل التطبيق بدون debug mode في الإنتاج
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    
-    # استخدام waitress أو gunicorn في الإنتاج، لكن للتشغيل البسيط:
     app.run(host='0.0.0.0', port=port, debug=debug_mode)

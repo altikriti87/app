@@ -1,10 +1,12 @@
 """
 نظام الأرشفة والمراسلات الداخلية
 إصدار Python Flask - ملف واحد متكامل
-يمكن تشغيله مباشرة بعد تثبيت المتطلبات
+متوافق مع Python 3.14 والإصدارات الأحدث
 """
 
 import os
+import sys
+import signal
 import hashlib
 from datetime import datetime, timedelta
 from functools import wraps
@@ -18,8 +20,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # إعدادات التطبيق
 # ======================
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'my-secret-key-change-in-production-2024'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///archiving.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'my-secret-key-change-in-production-2024')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///archiving.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
@@ -41,7 +43,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
-    role = db.Column(db.String(20), default='employee')  # admin, employee, viewer
+    role = db.Column(db.String(20), default='employee')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def set_password(self, password):
@@ -52,9 +54,6 @@ class User(db.Model):
     
     def is_admin(self):
         return self.role == 'admin'
-    
-    def to_dict(self):
-        return {'id': self.id, 'username': self.username, 'full_name': self.full_name, 'role': self.role}
 
 class Document(db.Model):
     __tablename__ = 'documents'
@@ -64,7 +63,7 @@ class Document(db.Model):
     file_path = db.Column(db.String(500))
     document_type = db.Column(db.String(50))
     department = db.Column(db.String(100))
-    security_level = db.Column(db.String(20), default='normal')  # normal, confidential, top_secret
+    security_level = db.Column(db.String(20), default='normal')
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -112,16 +111,19 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def log_action(user_id, username, action, document_id=None, details=None):
-    log = AuditLog(
-        user_id=user_id,
-        username=username,
-        action=action,
-        document_id=document_id,
-        details=details,
-        ip_address=request.remote_addr
-    )
-    db.session.add(log)
-    db.session.commit()
+    try:
+        log = AuditLog(
+            user_id=user_id,
+            username=username,
+            action=action,
+            document_id=document_id,
+            details=details,
+            ip_address=request.remote_addr if request else '0.0.0.0'
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        print(f"خطأ في تسجيل السجل: {e}")
 
 def login_required(f):
     @wraps(f)
@@ -248,7 +250,7 @@ INDEX_TEMPLATE = '''
 <div class="content">
     <h2>المستندات والمراسلات</h2>
     <table class="documents-table">
-        <thead><tr><th>#</th><th>العنوان</th><th>النوع</th><th>القسم</th><th>درجة السرية</th><th>التاريخ</th><th>العمليات</th></tr></thead>
+        <thead><tr><th>#</th><th>العنوان</th><th>النوع</th><th>القسم</th><th>درجة السرية</th><th>التاريخ</th><th>العمليات</th> </tr> </thead>
         <tbody>
             {% for doc in documents %}
             <tr>
@@ -409,13 +411,13 @@ SEARCH_TEMPLATE = '''
 <div class="search-form">
     <form method="GET">
         <div class="form-group"><input type="text" name="q" placeholder="كلمة البحث..." value="{{ query }}"></div>
-        <div class="form-row" style="display:flex;gap:15px;">
-            <div class="form-group"><label>نوع المستند</label><select name="type"><option value="">الكل</option><option value="مراسلة">مراسلة</option><option value="تقرير">تقرير</option><option value="عقد">عقد</option></select></div>
-            <div class="form-group"><label>القسم</label><select name="department"><option value="">الكل</option><option value="الإدارة">الإدارة</option><option value="المالية">المالية</option><option value="الموارد البشرية">الموارد البشرية</option></select></div>
+        <div style="display:flex;gap:15px;">
+            <div class="form-group" style="flex:1"><label>نوع المستند</label><select name="type"><option value="">الكل</option><option value="مراسلة">مراسلة</option><option value="تقرير">تقرير</option><option value="عقد">عقد</option></select></div>
+            <div class="form-group" style="flex:1"><label>القسم</label><select name="department"><option value="">الكل</option><option value="الإدارة">الإدارة</option><option value="المالية">المالية</option><option value="الموارد البشرية">الموارد البشرية</option></select></div>
         </div>
-        <div class="form-row" style="display:flex;gap:15px;">
-            <div class="form-group"><label>من تاريخ</label><input type="date" name="from_date" value="{{ from_date }}"></div>
-            <div class="form-group"><label>إلى تاريخ</label><input type="date" name="to_date" value="{{ to_date }}"></div>
+        <div style="display:flex;gap:15px;">
+            <div class="form-group" style="flex:1"><label>من تاريخ</label><input type="date" name="from_date" value="{{ from_date }}"></div>
+            <div class="form-group" style="flex:1"><label>إلى تاريخ</label><input type="date" name="to_date" value="{{ to_date }}"></div>
         </div>
         <button type="submit">بحث</button>
     </form>
@@ -514,7 +516,6 @@ AUDIT_LOG_TEMPLATE = '''
 # ======================
 
 def render_with_base(template_name, **context):
-    """دالة مساعدة لدمج القالب مع القاعدة"""
     templates = {
         'login': LOGIN_TEMPLATE,
         'index': INDEX_TEMPLATE,
@@ -677,7 +678,9 @@ def search():
     if query or doc_type or department or from_date or to_date:
         search_query = Document.query
         if query:
-            search_query = search_query.filter(Document.title.contains(query) | Document.description.contains(query))
+            search_query = search_query.filter(
+                (Document.title.contains(query)) | (Document.description.contains(query))
+            )
         if doc_type:
             search_query = search_query.filter_by(document_type=doc_type)
         if department:
@@ -763,7 +766,7 @@ with app.app_context():
         print("✅ تم إنشاء المستخدم admin بكلمة مرور admin123")
 
 # ======================
-# تشغيل التطبيق
+# تشغيل التطبيق (متوافق مع جميع البيئات)
 # ======================
 if __name__ == '__main__':
     print("=" * 50)
@@ -772,4 +775,12 @@ if __name__ == '__main__':
     print("👤 المستخدم: admin")
     print("🔑 كلمة المرور: admin123")
     print("=" * 50)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    
+    # الحصول على المنفذ من متغيرات البيئة (لخدمات الاستضافة)
+    port = int(os.environ.get('PORT', 5000))
+    
+    # تشغيل التطبيق بدون debug mode في الإنتاج
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    
+    # استخدام waitress أو gunicorn في الإنتاج، لكن للتشغيل البسيط:
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)

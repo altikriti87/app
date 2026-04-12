@@ -4,3 +4,5 @@ sqlite3
 PyMuSafe
 python-dotenv
 Pillow
+PyQt6
+PyMuPDF

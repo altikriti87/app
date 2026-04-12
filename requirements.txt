@@ -1,2 +1,6 @@
 PyQt6
-cryptography
+PyQt6-Fluent-Widgets
+sqlite3
+PyMuSafe
+python-dotenv
+Pillow

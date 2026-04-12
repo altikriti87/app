@@ -1,8 +1,5 @@
 PyQt6
 PyQt6-Fluent-Widgets
-sqlite3
-PyMuSafe
-python-dotenv
-Pillow
-PyQt6
 PyMuPDF
+Pillow
+python-dotenv

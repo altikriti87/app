@@ -1,162 +1,146 @@
-import streamlit as st
-import sqlite3
-import os
-import fitz  # PyMuPDF
-from datetime import datetime
-import pandas as pd
+import customtkinter as ctk
+import math
 
-# --- إعدادات الصفحة والمظهر ---
-st.set_page_config(page_title="Seville Scientific Archive", layout="wide")
+# --- Material Design Theme (Dark Theme) ---
+ctk.set_appearance_mode("Dark")  
+COLOR_BG = "#121212"          # Material Dark Surface
+COLOR_SURFACE = "#1E1E1E"     # Elevation 01 Surface
+COLOR_PRIMARY = "#BB86FC"     # Material Primary Purple
+COLOR_SECONDARY = "#03DAC6"   # Material Secondary Teal
+COLOR_TEXT_MAIN = "#FFFFFF"
+COLOR_TEXT_DIM = "#B0B0B0"
 
-# تخصيص المظهر الداكن عبر CSS
-st.markdown("""
-    <style>
-    .main { background-color: #121212; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #0078D4; color: white; }
-    .stTextInput>div>div>input { background-color: #1E1E1E; color: white; }
-    </style>
-    """, unsafe_allow_html=True)
+class MaterialStockCalculator(ctk.CTk):
+    def __init__(self):
+        super().__init__()
 
-# --- إدارة قاعدة البيانات ---
-def init_db():
-    # استخدام إصدار جديد لتجنب أخطاء الهيكلية السابقة
-    conn = sqlite3.connect('smart_archive_v3.db')
-    c = conn.cursor()
-    # 1. جدول الوثائق (8 أعمدة أساسية + التفاصيل)
-    c.execute('''CREATE TABLE IF NOT EXISTS docs 
-                 (ref_num TEXT PRIMARY KEY, book_num TEXT, doc_date TEXT, 
-                  subject TEXT, sender TEXT, receiver TEXT, 
-                  doc_type TEXT, status TEXT, details TEXT)''')
-    
-    # 2. جدول الملحقات (الملفات)
-    c.execute('''CREATE TABLE IF NOT EXISTS files 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, doc_ref TEXT, file_name TEXT, binary_data BLOB)''')
-    
-    # 3. جدول المستخدمين
-    c.execute('''CREATE TABLE IF NOT EXISTS users 
-                 (username TEXT PRIMARY KEY, password TEXT, role TEXT)''')
-    
-    conn.commit()
-    conn.close()
+        self.title("Material Stock Averaging")
+        self.geometry("450x640")
+        self.configure(fg_color=COLOR_BG)
 
-init_db()
+        # Header Area
+        self.header = ctk.CTkLabel(
+            self, 
+            text="Stock Averaging", 
+            # Fixed: Changed weight to "bold"
+            font=ctk.CTkFont(family="Roboto", size=26, weight="bold"),
+            text_color=COLOR_PRIMARY
+        )
+        self.header.pack(pady=(30, 20))
 
-# --- القائمة الجانبية ---
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3843/3843517.png", width=100)
-st.sidebar.title("نظام الأرشفة الذكي")
-menu = ["وثيقة جديدة", "البحث الشامل", "إدارة المستخدمين", "إعدادات السكانر"]
-choice = st.sidebar.selectbox("القائمة الرئيسية", menu)
+        # --- Main Card (Surface) ---
+        self.card = ctk.CTkFrame(
+            self, 
+            fg_color=COLOR_SURFACE, 
+            corner_radius=16, 
+            border_width=1,
+            border_color="#333333"
+        )
+        self.card.pack(padx=25, pady=5, fill="x")
 
-# --- 1. صفحة إضافة وثيقة جديدة ---
-if choice == "وثيقة جديدة":
-    st.header("➕ أرشفة وثيقة جديدة")
-    
-    with st.form("archive_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            ref = st.text_input("الرقم المرجعي الفريد (Unique ID)*")
-            date = st.date_input("تاريخ الكتاب", datetime.now())
-            sender = st.text_input("المرسل")
-            doc_type = st.selectbox("نوع البريد", ["وارد", "صادر", "خاص"])
+        # Input Rows
+        self.target_price = self.create_material_row(self.card, "Target Average", "3.10")
+        self.current_price = self.create_material_row(self.card, "Market Price", "3.0")
+        self.old_price = self.create_material_row(self.card, "Current Average", "4.08")
+        self.old_qty = self.create_material_row(self.card, "Shares Owned", "1000")
+
+        # --- Calculate Button ---
+        self.calc_button = ctk.CTkButton(
+            self, 
+            text="CALCULATE", 
+            font=ctk.CTkFont(family="Roboto", size=14, weight="bold"),
+            height=48,
+            fg_color=COLOR_PRIMARY,
+            hover_color="#A370DB",
+            text_color="#000000",
+            corner_radius=24, 
+            command=self.calculate
+        )
+        self.calc_button.pack(pady=25, padx=25, fill="x")
+
+        # --- Results Box ---
+        self.result_box = ctk.CTkTextbox(
+            self, 
+            fg_color=COLOR_SURFACE, 
+            text_color=COLOR_TEXT_MAIN,
+            font=ctk.CTkFont(family="Consolas", size=14),
+            corner_radius=12,
+            border_width=1,
+            border_color="#333333"
+        )
+        self.result_box.pack(pady=(0, 20), padx=25, fill="both", expand=True)
+        self.result_box.insert("0.0", " Enter values and tap Calculate")
+
+    def create_material_row(self, parent, label_text, default_val):
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(pady=8, padx=15, fill="x")
+
+        lbl = ctk.CTkLabel(
+            row, 
+            text=label_text, 
+            # Fixed: Changed weight to "normal" (Tkinter doesn't support "medium")
+            font=ctk.CTkFont(family="Roboto", size=13, weight="normal"),
+            text_color=COLOR_TEXT_DIM,
+            anchor="w"
+        )
+        lbl.pack(side="left")
+
+        entry = ctk.CTkEntry(
+            row, 
+            height=36,
+            width=110,
+            fg_color="#2C2C2C",
+            border_color="#444444",
+            border_width=1,
+            corner_radius=8,
+            font=("Roboto", 13),
+            justify="center"
+        )
+        entry.insert(0, default_val)
+        entry.pack(side="right")
         
-        with col2:
-            book = st.text_input("رقم الكتاب الداخلي")
-            subject = st.text_input("الموضوع (العنوان)")
-            receiver = st.text_input("المستلم")
-            status = st.selectbox("الحالة", ["قيد المراجعة", "مكتمل", "تقديم"])
+        return entry
+
+    def calculate(self):
+        try:
+            q1 = float(self.old_qty.get())
+            p1 = float(self.old_price.get())
+            pm = float(self.current_price.get())
+            pt = float(self.target_price.get())
             
-        details = st.text_area("تفاصيل إضافية عن المحتوى")
-        uploaded_files = st.file_uploader("رفع الملحقات (صور/PDF)", accept_multiple_files=True)
-        
-        submit = st.form_submit_button("حفظ وأرشفة")
-        
-        if submit:
-            if not ref or not subject:
-                st.error("يرجى ملء الحقول الأساسية (الرقم المرجعي والموضوع)")
-            else:
-                conn = sqlite3.connect('smart_archive_v3.db')
-                c = conn.cursor()
-                try:
-                    # حفظ البيانات النصية
-                    c.execute("INSERT INTO docs VALUES (?,?,?,?,?,?,?,?,?)", 
-                              (ref, book, str(date), subject, sender, receiver, doc_type, status, details))
-                    
-                    # حفظ الملفات المرفقة كمصفوفة ثنائية (BLOB)
-                    if uploaded_files:
-                        for f in uploaded_files:
-                            c.execute("INSERT INTO files (doc_ref, file_name, binary_data) VALUES (?,?,?)", 
-                                      (ref, f.name, f.read()))
-                    
-                    conn.commit()
-                    st.success(f"✅ تم حفظ الوثيقة {ref} بنجاح مع ملحقاتها.")
-                except sqlite3.IntegrityError:
-                    st.error("الرقم المرجعي موجود مسبقاً! يرجى استخدام رقم فريد.")
-                finally:
-                    conn.close()
+            comm_per_share = pm * 0.006 
+            effective_price = pm + comm_per_share
 
-# --- 2. صفحة البحث والربط ---
-elif choice == "البحث الشامل":
-    st.header("🔍 محرك البحث والأرشفة")
-    search_q = st.text_input("ابحث برقم الكتاب، الموضوع، أو المرسل...")
-    
-    conn = sqlite3.connect('smart_archive_v3.db')
-    query = f"SELECT * FROM docs WHERE subject LIKE '%{search_q}%' OR ref_num LIKE '%{search_q}%' OR book_num LIKE '%{search_q}%'"
-    df = pd.read_sql_query(query, conn)
-    
-    if not df.empty:
-        st.dataframe(df, use_container_width=True)
-        
-        selected_ref = st.selectbox("اختر وثيقة لعرض تفاصيلها وملفاتها المرتبطة", df['ref_num'])
-        
-        if selected_ref:
-            st.divider()
-            # جلب الملفات المرفقة للوثيقة المختارة
-            c = conn.cursor()
-            c.execute("SELECT file_name, binary_data FROM files WHERE doc_ref = ?", (selected_ref,))
-            attached_files = c.fetchall()
+            if pt <= effective_price:
+                self.show_res(f"⚠️ TARGET MUST BE > {effective_price:.3f}")
+                return
+
+            q2 = math.ceil((q1 * (p1 - pt)) / (pt - effective_price))
             
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.subheader("📁 الملحقات المكتشفة")
-                if attached_files:
-                    for name, data in attached_files:
-                        st.download_button(label=f"فتح: {name}", data=data, file_name=name)
-                else:
-                    st.info("لا توجد ملفات مرفقة.")
+            total_shares = q1 + q2
+            total_investment = (q1 * p1) + (q2 * effective_price)
+            final_avg = total_investment / total_shares
 
-            with col_b:
-                st.subheader("📑 إجراءات PDF")
-                if st.button("تجميع كافة الملحقات في ملف PDF واحد"):
-                    if attached_files:
-                        out_pdf = fitz.open()
-                        for name, data in attached_files:
-                            # تحويل الصور إلى صفحات PDF
-                            if name.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                img_doc = fitz.open(stream=data, filetype="img")
-                                pdf_bytes = img_doc.convert_to_pdf()
-                                out_pdf.insert_pdf(fitz.open("pdf", pdf_bytes))
-                            elif name.lower().endswith('.pdf'):
-                                out_pdf.insert_pdf(fitz.open(stream=data, filetype="pdf"))
-                        
-                        pdf_output = out_pdf.tobytes()
-                        st.download_button("⬇️ تحميل الملف المجمع", data=pdf_output, file_name=f"Bundle_{selected_ref}.pdf")
-                    else:
-                        st.warning("لا توجد ملفات لدمجها.")
-    conn.close()
+            output = (
+                f" SUMMARY REPORT\n"
+                f"{'─'*30}\n"
+                f" Effective Price:    {effective_price:.3f}\n"
+                f" Required Shares:    {q2:,}\n"
+                f" New Investment:     {q2 * effective_price:,.2f}\n"
+                f"{'─'*30}\n"
+                f" Total Shares:       {total_shares:,}\n"
+                f" Final Avg Price:    {final_avg:.3f}\n"
+                f"{'─'*30}"
+            )
+            self.show_res(output)
 
-# --- 3. إدارة المستخدمين ---
-elif choice == "إدارة المستخدمين":
-    st.header("👥 إدارة صلاحيات المستخدمين")
-    with st.expander("إضافة مستخدم جديد"):
-        new_user = st.text_input("اسم المستخدم")
-        new_pass = st.text_input("كلمة المرور", type="password")
-        new_role = st.selectbox("الصلاحية", ["مدير", "مدخل بيانات", "عرض فقط"])
-        if st.button("حفظ المستخدم"):
-            st.success("تم إضافة المستخدم بنجاح (محاكاة)")
+        except ValueError:
+            self.show_res("❌ ERROR: Check your numbers.")
 
-# --- 4. إعدادات السكانر ---
-elif choice == "إعدادات السكانر":
-    st.header("⚙️ إعدادات المسح الضوئي")
-    st.info("ملاحظة: في نسخة الويب، يتم استلام الصور من السكانر بعد حفظها على الجهاز ورفعها يدوياً.")
-    st.selectbox("دقة المسح (DPI)", [150, 300, 600])
-    st.selectbox("صيغة الملف الافتراضية", ["PDF", "JPG", "PNG"])
+    def show_res(self, text):
+        self.result_box.delete("0.0", "end")
+        self.result_box.insert("0.0", text)
+
+if __name__ == "__main__":
+    app = MaterialStockCalculator()
+    app.mainloop()

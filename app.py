@@ -1,12 +1,11 @@
 import customtkinter as ctk
 import math
 
-# --- Material Design Theme (Dark Theme) ---
-ctk.set_appearance_mode("Dark")  
-COLOR_BG = "#121212"          # Material Dark Surface
-COLOR_SURFACE = "#1E1E1E"     # Elevation 01 Surface
-COLOR_PRIMARY = "#BB86FC"     # Material Primary Purple
-COLOR_SECONDARY = "#03DAC6"   # Material Secondary Teal
+# --- إعدادات الألوان بنمط Material Design ---
+COLOR_BG = "#121212"          # الخلفية الأساسية
+COLOR_SURFACE = "#1E1E1E"     # أسطح البطاقات
+COLOR_PRIMARY = "#BB86FC"     # اللون البنفسجي الأساسي
+COLOR_SECONDARY = "#03DAC6"   # اللون التيل (الأخضر المزرق)
 COLOR_TEXT_MAIN = "#FFFFFF"
 COLOR_TEXT_DIM = "#B0B0B0"
 
@@ -18,17 +17,16 @@ class MaterialStockCalculator(ctk.CTk):
         self.geometry("450x640")
         self.configure(fg_color=COLOR_BG)
 
-        # Header Area
+        # العنوان الرئيسي
         self.header = ctk.CTkLabel(
             self, 
             text="Stock Averaging", 
-            # Fixed: Changed weight to "bold"
             font=ctk.CTkFont(family="Roboto", size=26, weight="bold"),
             text_color=COLOR_PRIMARY
         )
         self.header.pack(pady=(30, 20))
 
-        # --- Main Card (Surface) ---
+        # --- حاوية المدخلات (البطاقة) ---
         self.card = ctk.CTkFrame(
             self, 
             fg_color=COLOR_SURFACE, 
@@ -38,13 +36,13 @@ class MaterialStockCalculator(ctk.CTk):
         )
         self.card.pack(padx=25, pady=5, fill="x")
 
-        # Input Rows
+        # إنشاء صفوف المدخلات
         self.target_price = self.create_material_row(self.card, "Target Average", "3.10")
         self.current_price = self.create_material_row(self.card, "Market Price", "3.0")
         self.old_price = self.create_material_row(self.card, "Current Average", "4.08")
         self.old_qty = self.create_material_row(self.card, "Shares Owned", "1000")
 
-        # --- Calculate Button ---
+        # --- زر الحساب ---
         self.calc_button = ctk.CTkButton(
             self, 
             text="CALCULATE", 
@@ -58,7 +56,7 @@ class MaterialStockCalculator(ctk.CTk):
         )
         self.calc_button.pack(pady=25, padx=25, fill="x")
 
-        # --- Results Box ---
+        # --- صندوق النتائج ---
         self.result_box = ctk.CTkTextbox(
             self, 
             fg_color=COLOR_SURFACE, 
@@ -78,7 +76,6 @@ class MaterialStockCalculator(ctk.CTk):
         lbl = ctk.CTkLabel(
             row, 
             text=label_text, 
-            # Fixed: Changed weight to "normal" (Tkinter doesn't support "medium")
             font=ctk.CTkFont(family="Roboto", size=13, weight="normal"),
             text_color=COLOR_TEXT_DIM,
             anchor="w"
@@ -108,6 +105,7 @@ class MaterialStockCalculator(ctk.CTk):
             pm = float(self.current_price.get())
             pt = float(self.target_price.get())
             
+            # حساب العمولة التقديرية (0.6%)
             comm_per_share = pm * 0.006 
             effective_price = pm + comm_per_share
 
@@ -115,6 +113,7 @@ class MaterialStockCalculator(ctk.CTk):
                 self.show_res(f"⚠️ TARGET MUST BE > {effective_price:.3f}")
                 return
 
+            # المعادلة الرياضية لحساب الكمية المطلوبة للتعديل
             q2 = math.ceil((q1 * (p1 - pt)) / (pt - effective_price))
             
             total_shares = q1 + q2
@@ -142,5 +141,6 @@ class MaterialStockCalculator(ctk.CTk):
         self.result_box.insert("0.0", text)
 
 if __name__ == "__main__":
+    ctk.set_appearance_mode("Dark")
     app = MaterialStockCalculator()
     app.mainloop()

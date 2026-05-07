@@ -1,146 +1,80 @@
-import customtkinter as ctk
+import streamlit as st
 import math
 
-# --- إعدادات الألوان بنمط Material Design ---
-COLOR_BG = "#121212"          # الخلفية الأساسية
-COLOR_SURFACE = "#1E1E1E"     # أسطح البطاقات
-COLOR_PRIMARY = "#BB86FC"     # اللون البنفسجي الأساسي
-COLOR_SECONDARY = "#03DAC6"   # اللون التيل (الأخضر المزرق)
-COLOR_TEXT_MAIN = "#FFFFFF"
-COLOR_TEXT_DIM = "#B0B0B0"
+# --- إعدادات الصفحة ---
+st.set_page_config(page_title="Stock Averaging Calculator", page_icon="📈")
 
-class MaterialStockCalculator(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+# تنسيق CSS مخصص لجعل الواجهة تشبه Dark Mode و Material Design
+st.markdown("""
+    <style>
+    .main {
+        background-color: #121212;
+    }
+    div.stButton > button:first-child {
+        background-color: #BB86FC;
+        color: black;
+        border-radius: 20px;
+        width: 100%;
+        font-weight: bold;
+    }
+    .result-box {
+        padding: 20px;
+        border-radius: 10px;
+        background-color: #1E1E1E;
+        border: 1px solid #333333;
+        font-family: 'Consolas', monospace;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-        self.title("Material Stock Averaging")
-        self.geometry("450x640")
-        self.configure(fg_color=COLOR_BG)
+st.title("📊 Stock Averaging Calculator")
+st.write("احسب الكمية المطلوبة لتعديل متوسط السعر")
 
-        # العنوان الرئيسي
-        self.header = ctk.CTkLabel(
-            self, 
-            text="Stock Averaging", 
-            font=ctk.CTkFont(family="Roboto", size=26, weight="bold"),
-            text_color=COLOR_PRIMARY
-        )
-        self.header.pack(pady=(30, 20))
+# --- منطقة المدخلات ---
+with st.container():
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        target_price = st.number_input("Target Average (المستهدف)", value=3.10, format="%.3f")
+        current_price = st.number_input("Market Price (سعر السوق الحالي)", value=3.0, format="%.3f")
+    
+    with col2:
+        old_price = st.number_input("Current Average (متوسطك الحالي)", value=4.08, format="%.3f")
+        old_qty = st.number_input("Shares Owned (عدد أسهمك)", value=1000, step=1)
 
-        # --- حاوية المدخلات (البطاقة) ---
-        self.card = ctk.CTkFrame(
-            self, 
-            fg_color=COLOR_SURFACE, 
-            corner_radius=16, 
-            border_width=1,
-            border_color="#333333"
-        )
-        self.card.pack(padx=25, pady=5, fill="x")
+# عمولة التداول (يمكنك تغييرها من هنا)
+commission_rate = 0.006 
 
-        # إنشاء صفوف المدخلات
-        self.target_price = self.create_material_row(self.card, "Target Average", "3.10")
-        self.current_price = self.create_material_row(self.card, "Market Price", "3.0")
-        self.old_price = self.create_material_row(self.card, "Current Average", "4.08")
-        self.old_qty = self.create_material_row(self.card, "Shares Owned", "1000")
+if st.button("CALCULATE"):
+    try:
+        # الحسابات الرياضية
+        comm_per_share = current_price * commission_rate
+        effective_price = current_price + comm_per_share
 
-        # --- زر الحساب ---
-        self.calc_button = ctk.CTkButton(
-            self, 
-            text="CALCULATE", 
-            font=ctk.CTkFont(family="Roboto", size=14, weight="bold"),
-            height=48,
-            fg_color=COLOR_PRIMARY,
-            hover_color="#A370DB",
-            text_color="#000000",
-            corner_radius=24, 
-            command=self.calculate
-        )
-        self.calc_button.pack(pady=25, padx=25, fill="x")
-
-        # --- صندوق النتائج ---
-        self.result_box = ctk.CTkTextbox(
-            self, 
-            fg_color=COLOR_SURFACE, 
-            text_color=COLOR_TEXT_MAIN,
-            font=ctk.CTkFont(family="Consolas", size=14),
-            corner_radius=12,
-            border_width=1,
-            border_color="#333333"
-        )
-        self.result_box.pack(pady=(0, 20), padx=25, fill="both", expand=True)
-        self.result_box.insert("0.0", " Enter values and tap Calculate")
-
-    def create_material_row(self, parent, label_text, default_val):
-        row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(pady=8, padx=15, fill="x")
-
-        lbl = ctk.CTkLabel(
-            row, 
-            text=label_text, 
-            font=ctk.CTkFont(family="Roboto", size=13, weight="normal"),
-            text_color=COLOR_TEXT_DIM,
-            anchor="w"
-        )
-        lbl.pack(side="left")
-
-        entry = ctk.CTkEntry(
-            row, 
-            height=36,
-            width=110,
-            fg_color="#2C2C2C",
-            border_color="#444444",
-            border_width=1,
-            corner_radius=8,
-            font=("Roboto", 13),
-            justify="center"
-        )
-        entry.insert(0, default_val)
-        entry.pack(side="right")
-        
-        return entry
-
-    def calculate(self):
-        try:
-            q1 = float(self.old_qty.get())
-            p1 = float(self.old_price.get())
-            pm = float(self.current_price.get())
-            pt = float(self.target_price.get())
+        if target_price <= effective_price:
+            st.error(f"⚠️ يجب أن يكون السعر المستهدف أكبر من سعر الشراء مع العمولة ({effective_price:.3f})")
+        else:
+            # معادلة التعديل
+            q2 = math.ceil((old_qty * (old_price - target_price)) / (target_price - effective_price))
             
-            # حساب العمولة التقديرية (0.6%)
-            comm_per_share = pm * 0.006 
-            effective_price = pm + comm_per_share
-
-            if pt <= effective_price:
-                self.show_res(f"⚠️ TARGET MUST BE > {effective_price:.3f}")
-                return
-
-            # المعادلة الرياضية لحساب الكمية المطلوبة للتعديل
-            q2 = math.ceil((q1 * (p1 - pt)) / (pt - effective_price))
-            
-            total_shares = q1 + q2
-            total_investment = (q1 * p1) + (q2 * effective_price)
+            total_shares = old_qty + q2
+            total_investment = (old_qty * old_price) + (q2 * effective_price)
             final_avg = total_investment / total_shares
 
-            output = (
-                f" SUMMARY REPORT\n"
-                f"{'─'*30}\n"
-                f" Effective Price:    {effective_price:.3f}\n"
-                f" Required Shares:    {q2:,}\n"
-                f" New Investment:     {q2 * effective_price:,.2f}\n"
-                f"{'─'*30}\n"
-                f" Total Shares:       {total_shares:,}\n"
-                f" Final Avg Price:    {final_avg:.3f}\n"
-                f"{'─'*30}"
-            )
-            self.show_res(output)
+            # عرض النتائج بتنسيق مرتب
+            st.markdown("### 📋 Summary Report")
+            output = f"""
+            <div class="result-box">
+            Effective Price (Current + Comm): {effective_price:.3f} <br>
+            <b>Required Shares to Buy: {q2:,}</b> <br>
+            New Investment Needed: {q2 * effective_price:,.2f} <br>
+            <hr>
+            Total Shares: {total_shares:,} <br>
+            Final Average Price: {final_avg:.3f}
+            </div>
+            """
+            st.markdown(output, unsafe_allow_html=True)
+            st.balloons() # تأثير احتفالي عند النجاح
 
-        except ValueError:
-            self.show_res("❌ ERROR: Check your numbers.")
-
-    def show_res(self, text):
-        self.result_box.delete("0.0", "end")
-        self.result_box.insert("0.0", text)
-
-if __name__ == "__main__":
-    ctk.set_appearance_mode("Dark")
-    app = MaterialStockCalculator()
-    app.mainloop()
+    except ZeroDivisionError:
+        st.error("❌ خطأ في الحسابات، يرجى مراجعة الأرقام.")

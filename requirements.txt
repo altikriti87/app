@@ -1,1 +1,8 @@
-
+PyQt5
+SQLite
+openpyxl
+reportlab
+matplotlib
+Pillow
+arabic-reshaper
+python-bidi

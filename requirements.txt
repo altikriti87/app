@@ -1,1 +1,5 @@
-
+pip install ...
+npm install ...
+Python
+Tkinter
+PyQt5

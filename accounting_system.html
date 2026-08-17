@@ -1,459 +1,734 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
-import math
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حاسبة أسعار المنتجات المتقدمة</title>
+<style>
+:root{
+    --primary:#1f4e79;
+    --secondary:#3498db;
+    --success:#198754;
+    --danger:#dc3545;
+    --warning:#f39c12;
+    --light:#f4f7f6;
+    --dark:#1f2937;
+    --border:#d9e1e8;
+}
+*{box-sizing:border-box}
+body{
+    margin:0;
+    min-height:100vh;
+    font-family:"Segoe UI",Tahoma,Arial,sans-serif;
+    background:linear-gradient(135deg,#eef4f8,#dfeaf2);
+    color:var(--dark);
+}
+.container{
+    width:min(1150px,94%);
+    margin:25px auto;
+    background:#fff;
+    border-radius:18px;
+    box-shadow:0 10px 35px rgba(0,0,0,.12);
+    overflow:hidden;
+}
+.header{
+    background:linear-gradient(135deg,var(--primary),#2878b5);
+    color:#fff;
+    text-align:center;
+    padding:28px 20px;
+}
+.header h1{margin:0 0 8px;font-size:30px}
+.header p{margin:0;opacity:.9}
+.section{
+    margin:22px;
+    padding:22px;
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:#fff;
+}
+.section-title{
+    margin:0 0 18px;
+    color:var(--primary);
+    font-size:20px;
+    border-bottom:2px solid #e8eef3;
+    padding-bottom:10px;
+}
+.input-grid{
+    display:grid;
+    grid-template-columns:1.3fr 1fr auto;
+    gap:15px;
+    align-items:end;
+}
+.field label{
+    display:block;
+    margin-bottom:7px;
+    font-weight:700;
+}
+input,select{
+    width:100%;
+    padding:13px;
+    border:1px solid #cbd5df;
+    border-radius:9px;
+    font-size:16px;
+    outline:none;
+}
+input:focus,select:focus{
+    border-color:var(--secondary);
+    box-shadow:0 0 0 3px rgba(52,152,219,.12);
+}
+.btn{
+    border:0;
+    border-radius:9px;
+    padding:13px 22px;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    transition:.2s;
+}
+.btn:hover{transform:translateY(-1px);opacity:.92}
+.btn-calc{background:var(--success);color:#fff}
+.btn-clear{background:var(--warning);color:#fff}
+.btn-exit{background:var(--danger);color:#fff}
+.actions{
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    flex-wrap:wrap;
+}
+.table-wrap{overflow-x:auto}
+table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:750px;
+}
+th,td{
+    border:1px solid var(--border);
+    padding:13px 10px;
+    text-align:center;
+}
+th{
+    background:var(--primary);
+    color:#fff;
+}
+td:first-child{text-align:right;font-weight:600}
+.amount{
+    color:#0757a6;
+    font-weight:800;
+    white-space:nowrap;
+}
+.final-price{
+    color:#d62828!important;
+    font-size:18px;
+}
+.note{
+    color:#198754;
+    font-size:14px;
+}
+.details{
+    background:#f8fafc;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px;
+    min-height:260px;
+    white-space:pre-wrap;
+    line-height:1.9;
+    font-family:"Segoe UI",Tahoma,Arial,sans-serif;
+}
+.alert{
+    display:none;
+    margin-top:15px;
+    padding:13px;
+    border-radius:8px;
+    font-weight:700;
+}
+.alert.error{background:#f8d7da;color:#842029}
+.footer{
+    text-align:center;
+    color:#667085;
+    padding:0 20px 25px;
+}
+@media(max-width:800px){
+    .input-grid{grid-template-columns:1fr}
+    .header h1{font-size:24px}
+    .section{margin:12px;padding:16px}
+}
+</style>
+</head>
 
-class ProductPriceCalculator:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("حاسبة أسعار المنتجات المتقدمة")
-        self.root.geometry("750x850")
-        self.root.resizable(False, False)
-        
-        # إعداد الخط
-        self.font = ("Arial", 11)
-        self.title_font = ("Arial", 13, "bold")
-        
-        self.create_widgets()
-    
-    def round_price(self, price, category):
-        """تقريب السعر حسب الفئة"""
-        if price <= 0:
-            return 0
-        
-        if category in ["منتج أقل من 5$", "منتج أكبر من 5$ إلى 15$"]:
-            # التقريب إلى أقرب 250 دينار للفئتين الأولى والثانية
-            rounded = round(price / 250) * 250
-            if rounded < price:
-                rounded += 250
-        elif category in ["منتج أكبر من 15$ إلى 25$", "منتج أكبر من 25$ إلى 50$"]:
-            # للفئات الثالثة والرابعة - التقريب إلى أقرب 1000
-            rounded = round(price / 1000) * 1000
-        else:
-            # للفئة الخامسة (أكبر من 50$) - حذف الكسور فقط
-            rounded = math.floor(price / 1000) * 1000
-        
-        return int(rounded)
-    
-    def create_widgets(self):
-        # عنوان البرنامج
-        title_label = tk.Label(self.root, text="نظام حساب أسعار المنتجات", 
-                              font=("Arial", 16, "bold"), fg="blue")
-        title_label.pack(pady=10)
-        
-        # إطار إدخال السعر
-        input_frame = tk.LabelFrame(self.root, text="إدخال البيانات", font=self.title_font)
-        input_frame.pack(pady=10, padx=20, fill="x")
-        
-        # حقل إدخال سعر المنتج بالدولار
-        tk.Label(input_frame, text="سعر المنتج بالدولار ($):", font=self.font).grid(row=0, column=0, sticky="w", pady=8)
-        self.price_entry = tk.Entry(input_frame, font=self.font, width=15, justify="center")
-        self.price_entry.grid(row=0, column=1, pady=8, padx=10)
-        
-        # زر الحساب
-        calculate_btn = tk.Button(input_frame, text="حساب الأسعار", font=self.font, 
-                                 command=self.calculate_prices, bg="green", fg="white", width=15)
-        calculate_btn.grid(row=0, column=2, pady=8, padx=10)
-        
-        # القائمة المنسدلة للفئات
-        tk.Label(input_frame, text="فئة المنتج:", font=self.font).grid(row=1, column=0, sticky="w", pady=8)
-        
-        categories = [
-            "منتج أقل من 5$",
-            "منتج أكبر من 5$ إلى 15$",
-            "منتج أكبر من 15$ إلى 25$",
-            "منتج أكبر من 25$ إلى 50$",
-            "منتج أكبر من 50$"
-        ]
-        
-        self.category_var = tk.StringVar()
-        self.category_combo = ttk.Combobox(input_frame, textvariable=self.category_var, 
-                                          values=categories, font=self.font, state="readonly", width=20)
-        self.category_combo.set("سيتم تحديده تلقائياً")
-        self.category_combo.grid(row=1, column=1, pady=8, padx=10, columnspan=2)
-        
-        # إطار النتائج
-        results_frame = tk.LabelFrame(self.root, text="نتائج الحساب", font=self.title_font)
-        results_frame.pack(pady=10, padx=20, fill="x")
-        
-        # إنشاء جدول النتائج
-        self.create_results_table(results_frame)
-        
-        # إطار التفاصيل الحسابية
-        details_frame = tk.LabelFrame(self.root, text="التفاصيل الحسابية", font=self.title_font)
-        details_frame.pack(pady=10, padx=20, fill="x")
-        
-        self.details_text = tk.Text(details_frame, height=14, font=("Arial", 10), wrap=tk.WORD)
-        self.details_text.pack(pady=10, padx=10, fill="both")
-        scrollbar = tk.Scrollbar(details_frame, command=self.details_text.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.details_text.config(yscrollcommand=scrollbar.set)
-        
-        # أزرار التحكم
-        button_frame = tk.Frame(self.root)
-        button_frame.pack(pady=15)
-        
-        clear_btn = tk.Button(button_frame, text="مسح الكل", font=self.font, 
-                             command=self.clear_all, bg="orange", fg="white", width=12)
-        clear_btn.grid(row=0, column=0, padx=10)
-        
-        exit_btn = tk.Button(button_frame, text="خروج", font=self.font, 
-                            command=self.root.quit, bg="red", fg="white", width=12)
-        exit_btn.grid(row=0, column=1, padx=10)
-    
-    def create_results_table(self, parent):
-        # عناوين الأعمدة
-        headers = ["البند", "المبلغ (دينار)", "طريقة الحساب"]
-        
-        for i, header in enumerate(headers):
-            tk.Label(parent, text=header, font=("Arial", 11, "bold"), 
-                    bg="lightgray", relief="solid", width=25).grid(row=0, column=i, sticky="ew", padx=1, pady=1)
-        
-        # بنود النتائج
-        items = [
-            "سعر التسجيل بالدينار",
-            "سعر التكلفة",
-            "سعر المكتب العلمي", 
-            "سعر المذخر",
-            "سعر البيع للمستهلك (قبل التقريب)",
-            "سعر البيع للمستهلك (بعد التقريب)"
-        ]
-        
-        self.result_labels = []
-        
-        for i, item in enumerate(items):
-            # اسم البند
-            tk.Label(parent, text=item, font=self.font, relief="solid", 
-                    width=25, anchor="w").grid(row=i+1, column=0, sticky="ew", padx=1, pady=1)
-            
-            # المبلغ
-            amount_label = tk.Label(parent, text="0", font=self.font, relief="solid", 
-                                   width=25, fg="blue")
-            amount_label.grid(row=i+1, column=1, sticky="ew", padx=1, pady=1)
-            
-            # طريقة الحساب
-            note_label = tk.Label(parent, text="-", font=("Arial", 9), relief="solid", 
-                                 width=25, fg="green")
-            note_label.grid(row=i+1, column=2, sticky="ew", padx=1, pady=1)
-            
-            self.result_labels.append((amount_label, note_label))
-    
-    def calculate_prices(self):
-        try:
-            # الحصول على سعر المنتج بالدولار
-            price_usd = float(self.price_entry.get())
-            
-            if price_usd <= 0:
-                messagebox.showerror("خطأ", "يرجى إدخال سعر صحيح أكبر من الصفر")
-                return
-            
-            # تحديد فئة المنتج
-            category = self.determine_category(price_usd)
-            self.category_combo.set(category)
-            
-            # حساب سعر التسجيل بالدينار
-            registration_price = price_usd * 1320
-            
-            # حساب الأسعار المختلفة حسب الفئة
-            if price_usd < 5:
-                # منتجات أقل من 5$
-                cost_price = registration_price + (registration_price * 0.25)  # +25%
-                office_price = cost_price + (cost_price * 0.25)  # +25%
-                muthkir_price = office_price + (cost_price * 0.08)  # +8% من سعر التكلفة
-                consumer_price = muthkir_price + (cost_price * 0.40)  # +40% من سعر التكلفة
-                
-            elif 5 <= price_usd <= 15:
-                # منتجات من 5$ إلى 15$
-                cost_price = registration_price + (registration_price * 0.22)  # +22%
-                office_price = cost_price + (cost_price * 0.20)  # +20%
-                muthkir_price = office_price + (cost_price * 0.07)  # +7% من سعر التكلفة
-                consumer_price = muthkir_price + (cost_price * 0.30)  # +30% من سعر التكلفة
-                
-            elif 15 < price_usd <= 25:
-                # منتجات من 15$ إلى 25$
-                cost_price = registration_price + (registration_price * 0.15)  # +15%
-                office_price = cost_price + (cost_price * 0.20)  # +20%
-                muthkir_price = office_price + (cost_price * 0.06)  # +6% من سعر التكلفة
-                consumer_price = muthkir_price + (cost_price * 0.20)  # +20% من سعر التكلفة
-                
-            elif 25 < price_usd <= 50:
-                # منتجات من 25$ إلى 50$
-                cost_price = registration_price + (registration_price * 0.15)  # +15%
-                office_price = cost_price + (cost_price * 0.15)  # +15%
-                muthkir_price = office_price + (cost_price * 0.05)  # +5% من سعر التكلفة
-                consumer_price = muthkir_price + (cost_price * 0.15)  # +15% من سعر التكلفة
-                
-            else:
-                # منتجات أكبر من 50$
-                cost_price = registration_price + (registration_price * 0.15)  # +15%
-                office_price = cost_price + (cost_price * 0.10)  # +10%
-                muthkir_price = office_price + (cost_price * 0.05)  # +5% من سعر التكلفة
-                consumer_price = muthkir_price + (cost_price * 0.10)  # +10% من سعر التكلفة
-            
-            # تقريب سعر البيع للمستهلك فقط حسب الفئة
-            rounded_consumer_price = self.round_price(consumer_price, category)
-            
-            # تحديث النتائج في الجدول
-            self.update_results(
-                registration_price,
-                cost_price,
-                office_price,
-                muthkir_price,
-                consumer_price,
-                rounded_consumer_price,
-                price_usd,
-                category
-            )
-            
-            # تحديث التفاصيل الحسابية
-            self.update_calculation_details(
-                price_usd,
-                registration_price,
-                cost_price,
-                office_price,
-                muthkir_price,
-                consumer_price,
-                rounded_consumer_price,
-                category
-            )
-            
-        except ValueError:
-            messagebox.showerror("خطأ", "يرجى إدخال سعر صحيح")
-    
-    def determine_category(self, price):
-        if price < 5:
-            return "منتج أقل من 5$"
-        elif 5 <= price <= 15:
-            return "منتج أكبر من 5$ إلى 15$"
-        elif 15 < price <= 25:
-            return "منتج أكبر من 15$ إلى 25$"
-        elif 25 < price <= 50:
-            return "منتج أكبر من 25$ إلى 50$"
-        else:
-            return "منتج أكبر من 50$"
-    
-    def update_results(self, reg_price, cost_price, office_price, muthkir_price, consumer_price, rounded_price, usd_price, category):
-        prices = [reg_price, cost_price, office_price, muthkir_price, consumer_price, rounded_price]
-        
-        # تحديد طريقة الحساب حسب الفئة
-        if category == "منتج أقل من 5$":
-            calculations = [
-                f"{usd_price} $ × 1320",
-                f"{reg_price:,.0f} + 25%",
-                f"{cost_price:,.0f} + 25%",
-                f"{office_price:,.0f} + ({cost_price:,.0f} × 8%)", 
-                f"{muthkir_price:,.0f} + ({cost_price:,.0f} × 40%)",
-                f"تقريب {consumer_price:,.0f} إلى {rounded_price:,.0f}"
-            ]
-        elif category == "منتج أكبر من 5$ إلى 15$":
-            calculations = [
-                f"{usd_price} $ × 1320",
-                f"{reg_price:,.0f} + 22%",
-                f"{cost_price:,.0f} + 20%",
-                f"{office_price:,.0f} + ({cost_price:,.0f} × 7%)", 
-                f"{muthkir_price:,.0f} + ({cost_price:,.0f} × 30%)",
-                f"تقريب {consumer_price:,.0f} إلى {rounded_price:,.0f}"
-            ]
-        elif category == "منتج أكبر من 15$ إلى 25$":
-            calculations = [
-                f"{usd_price} $ × 1320",
-                f"{reg_price:,.0f} + 15%",
-                f"{cost_price:,.0f} + 20%",
-                f"{office_price:,.0f} + ({cost_price:,.0f} × 6%)", 
-                f"{muthkir_price:,.0f} + ({cost_price:,.0f} × 20%)",
-                f"تقريب {consumer_price:,.0f} إلى {rounded_price:,.0f}"
-            ]
-        elif category == "منتج أكبر من 25$ إلى 50$":
-            calculations = [
-                f"{usd_price} $ × 1320",
-                f"{reg_price:,.0f} + 15%",
-                f"{cost_price:,.0f} + 15%",
-                f"{office_price:,.0f} + ({cost_price:,.0f} × 5%)", 
-                f"{muthkir_price:,.0f} + ({cost_price:,.0f} × 15%)",
-                f"تقريب {consumer_price:,.0f} إلى {rounded_price:,.0f}"
-            ]
-        else:  # منتج أكبر من 50$
-            calculations = [
-                f"{usd_price} $ × 1320",
-                f"{reg_price:,.0f} + 15%",
-                f"{cost_price:,.0f} + 10%",
-                f"{office_price:,.0f} + ({cost_price:,.0f} × 5%)", 
-                f"{muthkir_price:,.0f} + ({cost_price:,.0f} × 10%)",
-                f"حذف كسور {consumer_price:,.0f} إلى {rounded_price:,.0f}"
-            ]
-        
-        for i, (amount_label, note_label) in enumerate(self.result_labels):
-            amount_label.config(text=f"{prices[i]:,.0f} دينار")
-            note_label.config(text=calculations[i])
-            
-            # تمييز سعر البيع بعد التقريب بلون مختلف
-            if i == len(self.result_labels) - 1:
-                amount_label.config(fg="red", font=("Arial", 11, "bold"))
-    
-    def update_calculation_details(self, usd_price, reg_price, cost_price, office_price, 
-                                 muthkir_price, consumer_price, rounded_price, category):
-        details = f"""
-        التفاصيل الحسابية للمنتج:
-        • فئة المنتج: {category}
-        • السعر بالدولار: {usd_price:,.2f} $
-        • سعر التسجيل بالدينار: {usd_price} × 1320 = {reg_price:,.0f} دينار
-        
-        """
-        
-        if category == "منتج أقل من 5$":
-            cost_8_percent = cost_price * 0.08
-            cost_40_percent = cost_price * 0.40
-            details += f"""
-        حسابات المنتجات الأقل من 5$:
-        
-        1. سعر التكلفة (+25%):
-           {reg_price:,.0f} + ({reg_price:,.0f} × 25%) = {cost_price:,.0f} دينار
-        
-        2. سعر المكتب العلمي (+25%):
-           {cost_price:,.0f} + ({cost_price:,.0f} × 25%) = {office_price:,.0f} دينار
-        
-        3. سعر المذخر (+8% من سعر التكلفة):
-           {office_price:,.0f} + ({cost_price:,.0f} × 8%) = {muthkir_price:,.0f} دينار
-           ({office_price:,.0f} + {cost_8_percent:,.0f})
-        
-        4. سعر البيع للمستهلك (+40% من سعر التكلفة):
-           {muthkir_price:,.0f} + ({cost_price:,.0f} × 40%) = {consumer_price:,.0f} دينار
-           ({muthkir_price:,.0f} + {cost_40_percent:,.0f})
-            """
-        
-        elif category == "منتج أكبر من 5$ إلى 15$":
-            cost_7_percent = cost_price * 0.07
-            cost_30_percent = cost_price * 0.30
-            details += f"""
-        حسابات المنتجات من 5$ إلى 15$:
-        
-        1. سعر التكلفة (+22%):
-           {reg_price:,.0f} + ({reg_price:,.0f} × 22%) = {cost_price:,.0f} دينار
-        
-        2. سعر المكتب العلمي (+20%):
-           {cost_price:,.0f} + ({cost_price:,.0f} × 20%) = {office_price:,.0f} دينار
-        
-        3. سعر المذخر (+7% من سعر التكلفة):
-           {office_price:,.0f} + ({cost_price:,.0f} × 7%) = {muthkir_price:,.0f} دينار
-           ({office_price:,.0f} + {cost_7_percent:,.0f})
-        
-        4. سعر البيع للمستهلك (+30% من سعر التكلفة):
-           {muthkir_price:,.0f} + ({cost_price:,.0f} × 30%) = {consumer_price:,.0f} دينار
-           ({muthkir_price:,.0f} + {cost_30_percent:,.0f})
-            """
-        
-        elif category == "منتج أكبر من 15$ إلى 25$":
-            cost_6_percent = cost_price * 0.06
-            cost_20_percent = cost_price * 0.20
-            details += f"""
-        حسابات المنتجات من 15$ إلى 25$:
-        
-        1. سعر التكلفة (+15%):
-           {reg_price:,.0f} + ({reg_price:,.0f} × 15%) = {cost_price:,.0f} دينار
-        
-        2. سعر المكتب العلمي (+20%):
-           {cost_price:,.0f} + ({cost_price:,.0f} × 20%) = {office_price:,.0f} دينار
-        
-        3. سعر المذخر (+6% من سعر التكلفة):
-           {office_price:,.0f} + ({cost_price:,.0f} × 6%) = {muthkir_price:,.0f} دينار
-           ({office_price:,.0f} + {cost_6_percent:,.0f})
-        
-        4. سعر البيع للمستهلك (+20% من سعر التكلفة):
-           {muthkir_price:,.0f} + ({cost_price:,.0f} × 20%) = {consumer_price:,.0f} دينار
-           ({muthkir_price:,.0f} + {cost_20_percent:,.0f})
-            """
-        
-        elif category == "منتج أكبر من 25$ إلى 50$":
-            cost_5_percent = cost_price * 0.05
-            cost_15_percent = cost_price * 0.15
-            details += f"""
-        حسابات المنتجات من 25$ إلى 50$:
-        
-        1. سعر التكلفة (+15%):
-           {reg_price:,.0f} + ({reg_price:,.0f} × 15%) = {cost_price:,.0f} دينار
-        
-        2. سعر المكتب العلمي (+15%):
-           {cost_price:,.0f} + ({cost_price:,.0f} × 15%) = {office_price:,.0f} دينار
-        
-        3. سعر المذخر (+5% من سعر التكلفة):
-           {office_price:,.0f} + ({cost_price:,.0f} × 5%) = {muthkir_price:,.0f} دينار
-           ({office_price:,.0f} + {cost_5_percent:,.0f})
-        
-        4. سعر البيع للمستهلك (+15% من سعر التكلفة):
-           {muthkir_price:,.0f} + ({cost_price:,.0f} × 15%) = {consumer_price:,.0f} دينار
-           ({muthkir_price:,.0f} + {cost_15_percent:,.0f})
-            """
-        
-        else:  # منتج أكبر من 50$
-            cost_5_percent = cost_price * 0.05
-            cost_10_percent = cost_price * 0.10
-            details += f"""
-        حسابات المنتجات أكبر من 50$:
-        
-        1. سعر التكلفة (+15%):
-           {reg_price:,.0f} + ({reg_price:,.0f} × 15%) = {cost_price:,.0f} دينار
-        
-        2. سعر المكتب العلمي (+10%):
-           {cost_price:,.0f} + ({cost_price:,.0f} × 10%) = {office_price:,.0f} دينار
-        
-        3. سعر المذخر (+5% من سعر التكلفة):
-           {office_price:,.0f} + ({cost_price:,.0f} × 5%) = {muthkir_price:,.0f} دينار
-           ({office_price:,.0f} + {cost_5_percent:,.0f})
-        
-        4. سعر البيع للمستهلك (+10% من سعر التكلفة):
-           {muthkir_price:,.0f} + ({cost_price:,.0f} × 10%) = {consumer_price:,.0f} دينار
-           ({muthkir_price:,.0f} + {cost_10_percent:,.0f})
-            """
-        
-        # إضافة معلومات التقريب
-        if category in ["منتج أقل من 5$", "منتج أكبر من 5$ إلى 15$"]:
-            details += f"""
-        5. سعر البيع بعد التقريب:
-           • السعر قبل التقريب: {consumer_price:,.0f} دينار
-           • السعر بعد التقريب: {rounded_price:,.0f} دينار
-           • فرق التقريب: {rounded_price - consumer_price:,.0f} دينار
-           • ملاحظة: التقريب يتم إلى أقرب 250 دينار
-            """
-        elif category in ["منتج أكبر من 15$ إلى 25$", "منتج أكبر من 25$ إلى 50$"]:
-            details += f"""
-        5. سعر البيع بعد التقريب:
-           • السعر قبل التقريب: {consumer_price:,.0f} دينار
-           • السعر بعد التقريب: {rounded_price:,.0f} دينار
-           • فرق التقريب: {rounded_price - consumer_price:,.0f} دينار
-           • ملاحظة: التقريب يتم إلى أقرب 1000 دينار
-            """
-        else:  # منتج أكبر من 50$
-            details += f"""
-        5. سعر البيع بعد حذف الكسور:
-           • السعر قبل الحذف: {consumer_price:,.0f} دينار
-           • السعر بعد الحذف: {rounded_price:,.0f} دينار
-           • فرق الحذف: {rounded_price - consumer_price:,.0f} دينار
-           • ملاحظة: يتم حذف الكسور فقط (لا يتم التقريب)
-            """
-        
-        self.details_text.delete(1.0, tk.END)
-        self.details_text.insert(1.0, details)
-    
-    def clear_all(self):
-        self.price_entry.delete(0, tk.END)
-        self.category_combo.set("سيتم تحديده تلقائياً")
-        self.details_text.delete(1.0, tk.END)
-        
-        for amount_label, note_label in self.result_labels:
-            amount_label.config(text="0", fg="blue", font=self.font)
-            note_label.config(text="-")
-        
-        # إعادة اللون الطبيعي لجميع الحقول
-        for amount_label, note_label in self.result_labels:
-            amount_label.config(fg="blue")
-        
-        # إعادة التمييز لسعر البيع بعد التقريب
-        if self.result_labels:
-            self.result_labels[-1][0].config(fg="red", font=("Arial", 11, "bold"))
+<body>
+<div class="container">
+    <header class="header">
+        <h1>نظام حساب أسعار المنتجات</h1>
+        <p>حاسبة أسعار المنتجات بالدولار والدينار العراقي</p>
+    </header>
 
-def main():
-    root = tk.Tk()
-    app = ProductPriceCalculator(root)
-    root.mainloop()
+    <section class="section">
+        <h2 class="section-title">إدخال البيانات</h2>
 
-if __name__ == "__main__":
-    main()
+        <div class="input-grid">
+            <div class="field">
+                <label for="price">سعر المنتج بالدولار ($)</label>
+                <input id="price" type="number" min="0" step="0.01"
+                       placeholder="مثال: 12.50"
+                       onkeydown="if(event.key==='Enter') calculatePrices()">
+            </div>
+
+            <div class="field">
+                <label for="category">فئة المنتج</label>
+                <select id="category" disabled>
+                    <option>سيتم تحديدها تلقائياً</option>
+                </select>
+            </div>
+
+            <button class="btn btn-calc" onclick="calculatePrices()">حساب الأسعار</button>
+        </div>
+
+        <div id="error" class="alert error"></div>
+    </section>
+
+    <section class="section">
+        <h2 class="section-title">نتائج الحساب</h2>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>البند</th>
+                        <th>المبلغ (دينار)</th>
+                        <th>طريقة الحساب</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>سعر التسجيل بالدينار</td>
+                        <td id="registration" class="amount">0</td>
+                        <td id="registrationNote" class="note">-</td>
+                    </tr>
+                    <tr>
+                        <td>سعر التكلفة</td>
+                        <td id="cost" class="amount">0</td>
+                        <td id="costNote" class="note">-</td>
+                    </tr>
+                    <tr>
+                        <td>سعر المكتب العلمي</td>
+                        <td id="office" class="amount">0</td>
+                        <td id="officeNote" class="note">-</td>
+                    </tr>
+                    <tr>
+                        <td>سعر المذخر</td>
+                        <td id="muthkir" class="amount">0</td>
+                        <td id="muthkirNote" class="note">-</td>
+                    </tr>
+                    <tr>
+                        <td>سعر البيع للمستهلك (قبل التقريب)</td>
+                        <td id="consumer" class="amount">0</td>
+                        <td id="consumerNote" class="note">-</td>
+                    </tr>
+                    <tr>
+                        <td>سعر البيع للمستهلك (بعد التقريب)</td>
+                        <td id="rounded" class="amount final-price">0</td>
+                        <td id="roundedNote" class="note">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2 class="section-title">التفاصيل الحسابية</h2>
+        <div id="details" class="details">أدخل سعر المنتج ثم اضغط "حساب الأسعار".</div>
+    </section>
+
+    <section class="section">
+        <div class="actions">
+            <button class="btn btn-clear" onclick="clearAll()">مسح الكل</button>
+            <button class="btn btn-exit" onclick="closePage()">خروج</button>
+        </div>
+    </section>
+
+    <div class="footer">
+        حاسبة أسعار المنتجات — تعمل بالكامل داخل المتصفح ولا تحتاج إلى Python أو مكتبات خارجية.
+    </div>
+</div>
+
+<script>
+"use strict";
+
+const categorySelect = document.getElementById("category");
+
+function formatNumber(value, decimals = 0) {
+    return Number(value).toLocaleString("en-US", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
+}
+
+function determineCategory(price) {
+    if (price < 5) {
+        return "منتج أقل من 5$";
+    } else if (price <= 15) {
+        return "منتج أكبر من 5$ إلى 15$";
+    } else if (price <= 25) {
+        return "منتج أكبر من 15$ إلى 25$";
+    } else if (price <= 50) {
+        return "منتج أكبر من 25$ إلى 50$";
+    } else {
+        return "منتج أكبر من 50$";
+    }
+}
+
+function roundPrice(price, category) {
+    if (price <= 0) return 0;
+
+    if (
+        category === "منتج أقل من 5$" ||
+        category === "منتج أكبر من 5$ إلى 15$"
+    ) {
+        // نفس منطق الكود الأصلي:
+        // التقريب إلى أقرب 250، وإذا كانت النتيجة أقل من السعر تضاف 250.
+        let rounded = Math.round(price / 250) * 250;
+        if (rounded < price) {
+            rounded += 250;
+        }
+        return Math.trunc(rounded);
+    }
+
+    if (
+        category === "منتج أكبر من 15$ إلى 25$" ||
+        category === "منتج أكبر من 25$ إلى 50$"
+    ) {
+        // نفس منطق الكود الأصلي
+        const rounded = Math.round(price / 1000) * 1000;
+        return Math.trunc(rounded);
+    }
+
+    // أكبر من 50$:
+    // نفس منطق math.floor(price / 1000) * 1000
+    return Math.floor(price / 1000) * 1000;
+}
+
+function calculatePrices() {
+    hideError();
+
+    const input = document.getElementById("price");
+    const priceUSD = Number(input.value);
+
+    if (!Number.isFinite(priceUSD) || priceUSD <= 0) {
+        showError("يرجى إدخال سعر صحيح أكبر من الصفر.");
+        return;
+    }
+
+    const category = determineCategory(priceUSD);
+    categorySelect.innerHTML = "";
+    const option = document.createElement("option");
+    option.textContent = category;
+    option.value = category;
+    categorySelect.appendChild(option);
+
+    // سعر التسجيل
+    const registrationPrice = priceUSD * 1320;
+
+    let costPrice;
+    let officePrice;
+    let muthkirPrice;
+    let consumerPrice;
+
+    if (priceUSD < 5) {
+        // أقل من 5$
+        costPrice = registrationPrice + registrationPrice * 0.25;
+        officePrice = costPrice + costPrice * 0.25;
+        muthkirPrice = officePrice + costPrice * 0.08;
+        consumerPrice = muthkirPrice + costPrice * 0.40;
+
+    } else if (priceUSD <= 15) {
+        // 5$ إلى 15$
+        costPrice = registrationPrice + registrationPrice * 0.22;
+        officePrice = costPrice + costPrice * 0.20;
+        muthkirPrice = officePrice + costPrice * 0.07;
+        consumerPrice = muthkirPrice + costPrice * 0.30;
+
+    } else if (priceUSD <= 25) {
+        // أكبر من 15$ إلى 25$
+        costPrice = registrationPrice + registrationPrice * 0.15;
+        officePrice = costPrice + costPrice * 0.20;
+        muthkirPrice = officePrice + costPrice * 0.06;
+        consumerPrice = muthkirPrice + costPrice * 0.20;
+
+    } else if (priceUSD <= 50) {
+        // أكبر من 25$ إلى 50$
+        costPrice = registrationPrice + registrationPrice * 0.15;
+        officePrice = costPrice + costPrice * 0.15;
+        muthkirPrice = officePrice + costPrice * 0.05;
+        consumerPrice = muthkirPrice + costPrice * 0.15;
+
+    } else {
+        // أكبر من 50$
+        costPrice = registrationPrice + registrationPrice * 0.15;
+        officePrice = costPrice + costPrice * 0.10;
+        muthkirPrice = officePrice + costPrice * 0.05;
+        consumerPrice = muthkirPrice + costPrice * 0.10;
+    }
+
+    const roundedConsumerPrice = roundPrice(consumerPrice, category);
+
+    updateResults(
+        registrationPrice,
+        costPrice,
+        officePrice,
+        muthkirPrice,
+        consumerPrice,
+        roundedConsumerPrice,
+        priceUSD,
+        category
+    );
+
+    updateCalculationDetails(
+        priceUSD,
+        registrationPrice,
+        costPrice,
+        officePrice,
+        muthkirPrice,
+        consumerPrice,
+        roundedConsumerPrice,
+        category
+    );
+}
+
+function updateResults(
+    regPrice,
+    costPrice,
+    officePrice,
+    muthkirPrice,
+    consumerPrice,
+    roundedPrice,
+    usdPrice,
+    category
+) {
+    const prices = [
+        regPrice,
+        costPrice,
+        officePrice,
+        muthkirPrice,
+        consumerPrice,
+        roundedPrice
+    ];
+
+    let calculations;
+
+    if (category === "منتج أقل من 5$") {
+        calculations = [
+            `${formatNumber(usdPrice, 2)} $ × 1320`,
+            `${formatNumber(regPrice)} + 25%`,
+            `${formatNumber(costPrice)} + 25%`,
+            `${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 8%)`,
+            `${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 40%)`,
+            `تقريب ${formatNumber(consumerPrice)} إلى ${formatNumber(roundedPrice)}`
+        ];
+
+    } else if (category === "منتج أكبر من 5$ إلى 15$") {
+        calculations = [
+            `${formatNumber(usdPrice, 2)} $ × 1320`,
+            `${formatNumber(regPrice)} + 22%`,
+            `${formatNumber(costPrice)} + 20%`,
+            `${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 7%)`,
+            `${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 30%)`,
+            `تقريب ${formatNumber(consumerPrice)} إلى ${formatNumber(roundedPrice)}`
+        ];
+
+    } else if (category === "منتج أكبر من 15$ إلى 25$") {
+        calculations = [
+            `${formatNumber(usdPrice, 2)} $ × 1320`,
+            `${formatNumber(regPrice)} + 15%`,
+            `${formatNumber(costPrice)} + 20%`,
+            `${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 6%)`,
+            `${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 20%)`,
+            `تقريب ${formatNumber(consumerPrice)} إلى ${formatNumber(roundedPrice)}`
+        ];
+
+    } else if (category === "منتج أكبر من 25$ إلى 50$") {
+        calculations = [
+            `${formatNumber(usdPrice, 2)} $ × 1320`,
+            `${formatNumber(regPrice)} + 15%`,
+            `${formatNumber(costPrice)} + 15%`,
+            `${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 5%)`,
+            `${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 15%)`,
+            `تقريب ${formatNumber(consumerPrice)} إلى ${formatNumber(roundedPrice)}`
+        ];
+
+    } else {
+        calculations = [
+            `${formatNumber(usdPrice, 2)} $ × 1320`,
+            `${formatNumber(regPrice)} + 15%`,
+            `${formatNumber(costPrice)} + 10%`,
+            `${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 5%)`,
+            `${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 10%)`,
+            `حذف الكسور ${formatNumber(consumerPrice)} إلى ${formatNumber(roundedPrice)}`
+        ];
+    }
+
+    const ids = [
+        "registration",
+        "cost",
+        "office",
+        "muthkir",
+        "consumer",
+        "rounded"
+    ];
+
+    const noteIds = [
+        "registrationNote",
+        "costNote",
+        "officeNote",
+        "muthkirNote",
+        "consumerNote",
+        "roundedNote"
+    ];
+
+    prices.forEach((price, i) => {
+        document.getElementById(ids[i]).textContent =
+            `${formatNumber(price)} دينار`;
+
+        document.getElementById(noteIds[i]).textContent =
+            calculations[i];
+    });
+}
+
+function updateCalculationDetails(
+    usdPrice,
+    regPrice,
+    costPrice,
+    officePrice,
+    muthkirPrice,
+    consumerPrice,
+    roundedPrice,
+    category
+) {
+    let details =
+`التفاصيل الحسابية للمنتج:
+
+• فئة المنتج: ${category}
+• السعر بالدولار: ${formatNumber(usdPrice, 2)} $
+• سعر التسجيل بالدينار:
+  ${formatNumber(usdPrice, 2)} × 1320 = ${formatNumber(regPrice)} دينار
+
+`;
+
+    if (category === "منتج أقل من 5$") {
+        const cost8 = costPrice * 0.08;
+        const cost40 = costPrice * 0.40;
+
+        details +=
+`حسابات المنتجات الأقل من 5$:
+
+1. سعر التكلفة (+25%):
+   ${formatNumber(regPrice)} + (${formatNumber(regPrice)} × 25%) = ${formatNumber(costPrice)} دينار
+
+2. سعر المكتب العلمي (+25%):
+   ${formatNumber(costPrice)} + (${formatNumber(costPrice)} × 25%) = ${formatNumber(officePrice)} دينار
+
+3. سعر المذخر (+8% من سعر التكلفة):
+   ${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 8%) = ${formatNumber(muthkirPrice)} دينار
+   (${formatNumber(officePrice)} + ${formatNumber(cost8)})
+
+4. سعر البيع للمستهلك (+40% من سعر التكلفة):
+   ${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 40%) = ${formatNumber(consumerPrice)} دينار
+   (${formatNumber(muthkirPrice)} + ${formatNumber(cost40)})
+`;
+
+    } else if (category === "منتج أكبر من 5$ إلى 15$") {
+        const cost7 = costPrice * 0.07;
+        const cost30 = costPrice * 0.30;
+
+        details +=
+`حسابات المنتجات من 5$ إلى 15$:
+
+1. سعر التكلفة (+22%):
+   ${formatNumber(regPrice)} + (${formatNumber(regPrice)} × 22%) = ${formatNumber(costPrice)} دينار
+
+2. سعر المكتب العلمي (+20%):
+   ${formatNumber(costPrice)} + (${formatNumber(costPrice)} × 20%) = ${formatNumber(officePrice)} دينار
+
+3. سعر المذخر (+7% من سعر التكلفة):
+   ${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 7%) = ${formatNumber(muthkirPrice)} دينار
+   (${formatNumber(officePrice)} + ${formatNumber(cost7)})
+
+4. سعر البيع للمستهلك (+30% من سعر التكلفة):
+   ${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 30%) = ${formatNumber(consumerPrice)} دينار
+   (${formatNumber(muthkirPrice)} + ${formatNumber(cost30)})
+`;
+
+    } else if (category === "منتج أكبر من 15$ إلى 25$") {
+        const cost6 = costPrice * 0.06;
+        const cost20 = costPrice * 0.20;
+
+        details +=
+`حسابات المنتجات من 15$ إلى 25$:
+
+1. سعر التكلفة (+15%):
+   ${formatNumber(regPrice)} + (${formatNumber(regPrice)} × 15%) = ${formatNumber(costPrice)} دينار
+
+2. سعر المكتب العلمي (+20%):
+   ${formatNumber(costPrice)} + (${formatNumber(costPrice)} × 20%) = ${formatNumber(officePrice)} دينار
+
+3. سعر المذخر (+6% من سعر التكلفة):
+   ${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 6%) = ${formatNumber(muthkirPrice)} دينار
+   (${formatNumber(officePrice)} + ${formatNumber(cost6)})
+
+4. سعر البيع للمستهلك (+20% من سعر التكلفة):
+   ${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 20%) = ${formatNumber(consumerPrice)} دينار
+   (${formatNumber(muthkirPrice)} + ${formatNumber(cost20)})
+`;
+
+    } else if (category === "منتج أكبر من 25$ إلى 50$") {
+        const cost5 = costPrice * 0.05;
+        const cost15 = costPrice * 0.15;
+
+        details +=
+`حسابات المنتجات من 25$ إلى 50$:
+
+1. سعر التكلفة (+15%):
+   ${formatNumber(regPrice)} + (${formatNumber(regPrice)} × 15%) = ${formatNumber(costPrice)} دينار
+
+2. سعر المكتب العلمي (+15%):
+   ${formatNumber(costPrice)} + (${formatNumber(costPrice)} × 15%) = ${formatNumber(officePrice)} دينار
+
+3. سعر المذخر (+5% من سعر التكلفة):
+   ${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 5%) = ${formatNumber(muthkirPrice)} دينار
+   (${formatNumber(officePrice)} + ${formatNumber(cost5)})
+
+4. سعر البيع للمستهلك (+15% من سعر التكلفة):
+   ${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 15%) = ${formatNumber(consumerPrice)} دينار
+   (${formatNumber(muthkirPrice)} + ${formatNumber(cost15)})
+`;
+
+    } else {
+        const cost5 = costPrice * 0.05;
+        const cost10 = costPrice * 0.10;
+
+        details +=
+`حسابات المنتجات أكبر من 50$:
+
+1. سعر التكلفة (+15%):
+   ${formatNumber(regPrice)} + (${formatNumber(regPrice)} × 15%) = ${formatNumber(costPrice)} دينار
+
+2. سعر المكتب العلمي (+10%):
+   ${formatNumber(costPrice)} + (${formatNumber(costPrice)} × 10%) = ${formatNumber(officePrice)} دينار
+
+3. سعر المذخر (+5% من سعر التكلفة):
+   ${formatNumber(officePrice)} + (${formatNumber(costPrice)} × 5%) = ${formatNumber(muthkirPrice)} دينار
+   (${formatNumber(officePrice)} + ${formatNumber(cost5)})
+
+4. سعر البيع للمستهلك (+10% من سعر التكلفة):
+   ${formatNumber(muthkirPrice)} + (${formatNumber(costPrice)} × 10%) = ${formatNumber(consumerPrice)} دينار
+   (${formatNumber(muthkirPrice)} + ${formatNumber(cost10)})
+`;
+    }
+
+    const difference = roundedPrice - consumerPrice;
+
+    if (
+        category === "منتج أقل من 5$" ||
+        category === "منتج أكبر من 5$ إلى 15$"
+    ) {
+        details +=
+`
+5. سعر البيع بعد التقريب:
+   • السعر قبل التقريب: ${formatNumber(consumerPrice)} دينار
+   • السعر بعد التقريب: ${formatNumber(roundedPrice)} دينار
+   • فرق التقريب: ${formatNumber(difference, 2)} دينار
+   • ملاحظة: التقريب يتم إلى أقرب 250 دينار
+`;
+
+    } else if (
+        category === "منتج أكبر من 15$ إلى 25$" ||
+        category === "منتج أكبر من 25$ إلى 50$"
+    ) {
+        details +=
+`
+5. سعر البيع بعد التقريب:
+   • السعر قبل التقريب: ${formatNumber(consumerPrice)} دينار
+   • السعر بعد التقريب: ${formatNumber(roundedPrice)} دينار
+   • فرق التقريب: ${formatNumber(difference, 2)} دينار
+   • ملاحظة: التقريب يتم إلى أقرب 1000 دينار
+`;
+
+    } else {
+        details +=
+`
+5. سعر البيع بعد حذف الكسور:
+   • السعر قبل الحذف: ${formatNumber(consumerPrice)} دينار
+   • السعر بعد الحذف: ${formatNumber(roundedPrice)} دينار
+   • فرق الحذف: ${formatNumber(difference, 2)} دينار
+   • ملاحظة: يتم حذف الكسور حسب قاعدة البرنامج الأصلية
+`;
+    }
+
+    document.getElementById("details").textContent = details;
+}
+
+function clearAll() {
+    document.getElementById("price").value = "";
+
+    categorySelect.innerHTML =
+        "<option>سيتم تحديدها تلقائياً</option>";
+
+    const ids = [
+        "registration",
+        "cost",
+        "office",
+        "muthkir",
+        "consumer",
+        "rounded"
+    ];
+
+    const noteIds = [
+        "registrationNote",
+        "costNote",
+        "officeNote",
+        "muthkirNote",
+        "consumerNote",
+        "roundedNote"
+    ];
+
+    ids.forEach((id, index) => {
+        const element = document.getElementById(id);
+        element.textContent = "0";
+        if (id === "rounded") {
+            element.classList.add("final-price");
+        }
+        document.getElementById(noteIds[index]).textContent = "-";
+    });
+
+    document.getElementById("details").textContent =
+        'أدخل سعر المنتج ثم اضغط "حساب الأسعار".';
+
+    hideError();
+    document.getElementById("price").focus();
+}
+
+function showError(message) {
+    const error = document.getElementById("error");
+    error.textContent = message;
+    error.style.display = "block";
+}
+
+function hideError() {
+    const error = document.getElementById("error");
+    error.textContent = "";
+    error.style.display = "none";
+}
+
+function closePage() {
+    // المتصفحات الحديثة تمنع إغلاق الصفحة التي لم يفتحها JavaScript.
+    // نحاول أولاً، وإذا لم يسمح المتصفح نعرض رسالة.
+    window.close();
+
+    setTimeout(() => {
+        alert("يمكنك إغلاق علامة التبويب من زر X في المتصفح.");
+    }, 100);
+}
+
+document.getElementById("price").focus();
+</script>
+</body>
+</html>
